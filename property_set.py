@@ -1,4 +1,4 @@
-from .card import *
+from card import *
 
 class PropertySet:
     def __init__(self, colour, maxSize):
@@ -18,39 +18,42 @@ class PropertySet:
         is_not_full = not (self.isCompleted())
 
         return not_wild_if_empty and correct_colour and is_not_full
-    
+
     def removeProperty(self, property):
-       for p in self.properties:
-          if p.id == property.id:
-             self.properties.remove(p)
-             break
-    
+        for p in self.properties:
+            if p.id == property.id:
+                return self.properties.remove(p)
+
+    def clearSet(self):
+        for property in self.properties:
+            self.removeProperty(property)
+
     def rentValue(self):
         if self.colour == "Dark Blue":
             rent = 3 if len(self.properties) == 1 else 8
         elif self.colour == "Brown":
             rent = len(self.properties)
         elif self.colour == "Light Green":
-           rent = len(self.properties)
+            rent = len(self.properties)
         elif self.colour == "Green":
-           rent = 2 * len(self.properties) if len(self.properties) <= 2 else 7
+            rent = 2 * len(self.properties) if len(self.properties) <= 2 else 7
         elif self.colour == "Light Blue":
-           rent = len(self.properties)
+            rent = len(self.properties)
         elif self.colour == "Red":
-           rent = len(self.properties) + 1 if len(self.properties) <= 2 else 6
+            rent = len(self.properties) + 1 if len(self.properties) <= 2 else 6
         elif self.colour == "Yellow":
-           rent = 2 * len(self.properties)
+            rent = 2 * len(self.properties)
         elif self.colour == "Orange":
-           rent = 2 * len(self.properties) - 1
+            rent = 2 * len(self.properties) - 1
         elif self.colour == "Pink":
-           rent = 2 ** (len(self.properties) - 1)
+            rent = 2 ** (len(self.properties) - 1)
         elif self.colour == "Black":
-           rent = len(self.properties)
-        
+            rent = len(self.properties)
+    
         return rent + (3 if self.hasHouse else 0) + (4 if self.hasHotel else 0)
     
     def isCompleted(self):
-       return len(self.properties) >= self.maxSize
+        return len(self.properties) >= self.maxSize
     
     def isOnlyWild(self):
         for p in self.properties:
