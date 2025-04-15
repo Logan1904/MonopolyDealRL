@@ -1,3 +1,5 @@
+import copy
+
 from property_set import *
 from card import *
 
@@ -31,10 +33,35 @@ class Player:
             colour: [PropertySet(colour,maxSize),PropertySet(colour,maxSize)] for colour,maxSize in property_set_number.items()
         }
 
+    def __repr__(self):
+        return self.name
+
     def drawTwo(self):
         cards = self.deck.getCards(2)
         self.hand += cards
     
+    def removeHandCard(self, card):
+        self.hand.remove(card)
+
+    def removeProperty(self, colour, set_index, card):
+        pSet = self.sets[colour][set_index]
+        pSet.removeProperty(card)
+
+    def addProperty(self, colour, set_index, card):
+        pSet = self.sets[colour][set_index]
+        pSet.addProperty(card)
+
+    def removeSet(self, colour, set_index):
+        pSet = copy.deepcopy(self.sets[colour][set_index])
+        self.sets[colour][set_index].clearSet()
+        return pSet
+
+    def addMoney(self, card):
+        self.money.append(card)
+
+    def removeMoney(self, card):
+        self.money.remove(card)
+
     def hasAtLeastOnePropertyOnBoard(self):
         for colour,pSets in self.sets.items():
             for pSet in pSets:
@@ -50,7 +77,7 @@ class Player:
         return False
     
     def hasAtLeastOneMoneyOnBoard(self):
-        if self.money():
+        if self.money:
             return True
         return False
     

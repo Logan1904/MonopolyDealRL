@@ -4,6 +4,9 @@ class Card:
         self.id = id
         self.name = name
         self.value = value
+
+    def __repr__(self):
+        return self.name
     
 class MoneyCard(Card):
     def __init__(self, id, name, value):
