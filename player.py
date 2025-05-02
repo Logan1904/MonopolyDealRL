@@ -40,8 +40,11 @@ class Player:
         cards = self.deck.getCards(2)
         self.hand += cards
     
-    def removeHandCard(self, card):
-        self.hand.remove(card)
+    def removeHandCardByID(self, ID):
+        for card in self.hand:
+            if card.id == ID:
+                self.hand.remove(card)
+                break
 
     def removeProperty(self, colour, set_index, card):
         pSet = self.sets[colour][set_index]

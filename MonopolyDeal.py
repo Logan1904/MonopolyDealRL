@@ -10,7 +10,7 @@ from pettingzoo.utils import agent_selector, wrappers
 from deck import *
 from player import *
 from card import *
-
+from action_description import *
 
 
 def env(render_mode=None):
@@ -60,7 +60,7 @@ class MonopolyDeal(AECEnv):
         self.num_unique_cards = 40                  # Number of unique cards in deck
 
         self.num_actions = 17                       # Number of actions
-        self.max_decisions = 4                      # Number of decisions (choose opponent, choose my property, choose your property, choose set)
+        self.max_decisions = 4                      # Number of decisions (choose opponent, choose property, choose set, end-of-turn)
 
         self.property_set_number = {
             "Dark Blue": 2,
@@ -97,20 +97,22 @@ class MonopolyDeal(AECEnv):
                     "full_set": gym.spaces.MultiBinary(self.max_sets_per_property)
                 }) for colour,max_cards in self.property_set_number.items()
             }),
-            "money": gym.spaces.Box(low=0, high=self.max_money_size, shape=(self.num_unique_money,), dtype=np.int8),
+            "money": gym.spaces.Box(low=0, high=self.max_any_card, shape=(self.num_unique_cards,), dtype=np.int8),
             "opponent_property": gym.spaces.Dict({
                 colour: gym.spaces.Dict({
                     "cards": gym.spaces.Box(low=-1, high=self.num_unique_property_cards, shape=(self.num_opponents,self.max_sets_per_property,max_cards), dtype=np.int8),
                     "full_set": gym.spaces.MultiBinary([self.num_opponents,self.max_sets_per_property])
                 }) for colour,max_cards in self.property_set_number.items()
             }),
-            "opponent_money": gym.spaces.Box(low=0, high=self.max_money_size, shape=(self.num_opponents,self.num_unique_money,), dtype=np.int8),
+            "opponent_money": gym.spaces.Box(low=0, high=self.max_any_card, shape=(self.num_opponents,self.num_unique_cards,), dtype=np.int8),
             "actions_left": gym.spaces.Discrete(4),
             "discard_pile": gym.spaces.Box(low=0, high=self.max_any_card, shape=(self.num_unique_cards,), dtype=np.int8),
             "action_context": gym.spaces.Dict({
+                "decision": gym.spaces.Discrete(self.max_decisions+2, start=-1),
                 "action": gym.spaces.Discrete(self.num_actions+1, start=-1),
-                "decision": gym.spaces.Discrete(self.max_decisions+1, start=-1),
-                "opponent": gym.spaces.Discrete(self.num_opponents+2, start=-1),
+                "hand_card": gym.spaces.Discrete(self.num_unique_cards+1, start=-1),
+                "target_ID": gym.spaces.Discrete(self.num_players+1, start=-1),
+                "opponent_ID": gym.spaces.Discrete(self.num_opponents+1, start=-1),
                 "opponent_property": gym.spaces.Dict({
                     "colour": gym.spaces.Discrete(self.num_unique_property_cards+1, start=-1),
                     "set_index": gym.spaces.Discrete(self.max_sets_per_property+1, start=-1),
@@ -160,13 +162,13 @@ class MonopolyDeal(AECEnv):
             {   
                 "action_ID": gym.spaces.Discrete(self.num_actions),                         # Choose an action
                 "hand_card": gym.spaces.Discrete(self.num_unique_cards),                    # Choose a card from hand
-                "opponent": gym.spaces.Discrete(self.num_opponents+1),                      # Choose an opponent
+                "opponent_ID": gym.spaces.Discrete(self.num_opponents+1),                      # Choose an opponent
                 "property_card": gym.spaces.Dict({                                          # Choose a card
                     "colour": gym.spaces.Discrete(self.num_unique_colours),
                     "set_index": gym.spaces.Discrete(self.max_sets_per_property),
                     "card": gym.spaces.Discrete(self.num_unique_property_cards)
                 }),
-                "set_index": gym.spaces.Dict({                                              # Choose a set
+                "set": gym.spaces.Dict({                                              # Choose a set
                     "colour": gym.spaces.Discrete(self.num_unique_colours),
                     "set_index": gym.spaces.Discrete(self.max_sets_per_property)
                 })
@@ -214,6 +216,7 @@ class MonopolyDeal(AECEnv):
         self.reset_action_context()
 
         # initialise observation dictionary
+        self.observations = {agent: {"observation": None, "action_mask": None} for agent in self.agents} 
         self.observations = {
             agent: {
                 "observation": self.observe(agent),
@@ -241,137 +244,221 @@ class MonopolyDeal(AECEnv):
         - agent_selection (to the next agent)
         And any internal state used by observe() or render()
         """
+
         # extract useful values
         agent = self.agent_selection
         player = self.players[agent]
-
+        decision = self.action_context["decision"]
+        action_ID = self.action_context["action"]
+        
         action_mask = self.initialise_action_mask()
 
-        if self.action_context["action"] == -1:
-            # action chosen → choose hand card
+        if decision == -1:
+            # action chosen
             action_ID = action["action_ID"]
-            self.action_context["action"] = np.int8(action_ID)
+            self.action_context["action"] = action_ID
             
             if action_ID == 0:      
                 # skip
-                self.action_context["decision"] = -1
+                self.action_context["decision"] = 4
             elif action_ID == 1:    
-                # move property → unmask property_card action
+                # move property → choose (my) property
+                self.action_context["decision"] = 1
+                self.action_context["target_ID"] = self.agents.index(agent)
+                # unmask (my) properties
                 self.set_action_mask_property_card(player, action_mask)
-                self.action_context["decision"] = 2
             else:                   
                 # the rest → unmask hand_card action
+                self.action_context["decision"] = 0
                 self.set_action_mask_hand_card(player, action_mask, action_ID)
+
+        elif decision == 0:
+            # hand card chosen
+            hand_card = action["hand_card"]
+            self.action_context["hand_card"] = hand_card
+
+            if action_ID == 2 or action_ID == 16:
+                # play money or just say no → end of turn
+                self.action_context["decision"] = 4
+            elif action_ID == 3 or action_ID == 4 or action_ID == 10 or action_ID == 11 or action_ID == 12 or action_ID == 13 or action_ID == 14 or action_ID == 15:
+                # play property, wild property or any rent → choose (my) set
+                self.action_context["decision"] = 3
+                self.action_context["target_ID"] = self.agents.index(agent)
+                # unmask (my) sets
+                self.set_action_mask_set_index(player, action_mask)
+            elif action_ID == 5 or action_ID == 6 or action_ID == 7 or action_ID == 8 or action_ID == 9:
+                # sly deal or forced deal or debt collector or it's my birthday or deal breaker → choose opponent
+                self.action_context["decision"] = 1
+                # unmask opponents
+                self.set_action_mask_opponent(player, action_mask)
+            
+        elif decision == 1:
+            # opponent chosen
+            opponent_ID = action["opponent_ID"]
+            self.action_context["opponent_ID"] = opponent_ID
+            opponent = self.agents[opponent_ID] 
+
+            if action_ID == 5 or action_ID == 6:
+                # sly deal or forced deal → choose (opponent) property
+                self.action_context["decision"] = 2
+                self.action_context["target_ID"] = opponent_ID
+                # unmask (opponent) properties
+                self.set_action_mask_property_card(self.players[opponent], action_mask)
+            elif action_ID == 7 or action_ID == 8 or action_ID == 15:
+                # debt collector, it's my birthday or wild rent → end of turn
+                self.action_context["decision"] = 4
+            elif action_ID == 9:
+                # deal breaker → choose (opponent) set
+                self.action_context["decision"] = 3
+                self.action_context["target"] = opponent_ID
+                # unmask (opponent) sets
+                self.set_action_mask_set_index(self.players[opponent], action_mask)
+
+        elif decision == 2:
+            # property chosen
+            property_card = action["property_card"]
+            if self.action_context["target_ID"] == self.action_context["opponent_ID"]:
+                self.action_context["opponent_property"] = property_card
+            else:
+                self.action_context["my_property"] = property_card
+            
+            if action_ID == 1 or action_ID == 5:
+                # move property, sly deal → choose (my) set
+                self.action_context["decision"] = 3
+                self.action_context["target_ID"] = self.agents.index(agent)
+                # unmask (my) sets
+                self.set_action_mask_set_index(player, action_mask)
+            elif action_ID == 6 and self.action_context["my_property"]["colour"] == -1:
+                # forced deal → choose (my) property
+                self.action_context["decision"] = 2
+                self.action_context["target_ID"] = self.agents.index(agent)
+                # unmask (my) properties
+                self.set_action_mask_property_card(player, action_mask)
+            elif action_ID == 6 and self.action_context["my_property"]["colour"] != -1:
+                # forced deal → choose (my) set
+                self.action_context["decision"] = 3
+                self.action_context["target_ID"] = self.agents.index(agent)
+                # unmask (my) sets
+                self.set_action_mask_set_index(player, action_mask)
+
+        elif decision == 3:
+            # set chosen
+            set_ = action["set"]
+            if self.action_context["target_ID"] == self.action_context["opponent_ID"]:
+                self.action_context["opponent_set"] = set_
+            else:
+                self.action_context["my_set"] = set_
+
+            if action_ID == 1 or action_ID == 3 or action_ID == 4 or action_ID == 5 or action_ID == 6 or action_ID == 9 or action_ID == 10 or action_ID == 11 or action_ID == 12 or action_ID == 14 or action_ID == 14:
+                # move property, play property, play wild, sly deal, forced deal, deal breaker, any rent except wild → end of turn
+                self.action_context["decision"] = 4
+            elif action_ID == 15:
+                # wild rent → choose opponent
+                self.action_context["decision"] = 1
+                # unmask opponents
+                self.set_action_mask_opponent(player, action_mask)
+
+        elif decision == 4:
+            # end of turn, perform actions and change state
+
+            if action_ID == 0:
+                # skip
+                pass
+            elif action_ID == 1:
+                # move property
+                my_property = self.action_context["my_property"]
+                pCard = self.get_property_card_from_id(my_property["colour"],my_property["set_index"],my_property["card"])
+                my_set = self.action_context["my_set"]
                 
+                player.removeProperty(my_property["colour"],my_property["set_index"],pCard)
+                player.addProperty(my_set["colour"],my_set["set_index"],pCard)
+            elif action_ID == 2:
+                # play money
+                hand_card = self.action_context["hand_card"]
+                mCard = self.get_hand_card_from_id(player,hand_card)
 
-        elif self.action_context["action"] > -1:
-            # hand card chosen → choose opponent, property or set based on decision stage
-            action_ID = self.action_context["action"]
+                player.removeHandCardByID(mCard)
+                player.addMoney(mCard)
+            elif action_ID == 3 or action_ID == 4:
+                # play property or wild property
+                hand_card = self.action_context["hand_card"]
+                pCard =  self.get_hand_card_from_id(player,hand_card)
+                my_set = self.action_context["my_set"]
 
-            if self.action_context["decision"] == -1:
-                # end of turn, perform actions and change state accordingly
+                player.addProperty(my_set["colour"],my_set["set_index"],pCard)
+            elif action_ID == 5:
+                # sly deal
+                opponent = self.players[self.agents[self.action_context["opponent"]]]
+                opponent_property = self.action_context["opponent_property"]
+                pCard = self.get_property_card_from_id(opponent_property["colour"],opponent_property["set_index"],opponent_property["card"])
+                my_set = self.action_context["my_set"]
 
-                if action_ID == 0:
-                    # skip
-                    pass
-                elif action_ID == 1:
-                    # move property
-                    my_property = self.action_context["my_property"]
-                    pCard = self.get_property_card_from_id(my_property["colour"],my_property["set_index"],my_property["card"])
-                    my_set = self.action_context["my_set"]
-                    
-                    player.removeProperty(my_property["colour"],my_property["set_index"],pCard)
-                    player.addProperty(my_set["colour"],my_set["set_index"],pCard)
-                elif action_ID == 2:
-                    # play money
-                    hand_card = action["hand_card"]
-                    mCard = self.get_hand_card_from_id(hand_card)
+                opponent.removeProperty(opponent_property["colour"],opponent_property["set_index"],pCard)
+                player.addProperty(my_set["colour"],my_set["set_index"],pCard)
+            elif action_ID == 6:
+                # forced deal
+                opponent = self.players[self.agents[self.action_context["opponent"]]]
+                opponent_property = self.action_context["opponent_property"]
+                opppCard = self.get_property_card_from_id(opponent_property["colour"],opponent_property["set_index"],opponent_property["card"])
+                my_property = self.action_context["my_property"]
+                mypCard = self.get_property_card_from_id(my_property["colour"],my_property["set_index"],my_property["card"])
+                my_set = self.action_context["my_set"]
 
-                    player.removeHandCard(mCard)
-                    player.addMoney(mCard)
-                elif action_ID == 3 or action_ID == 4:
-                    # play property or wild property
-                    hand_card = action["hand_card"]
-                    pCard =  self.get_hand_card_from_id(hand_card)
-                    my_set = self.action_context["my_set"]
+                opponent.removeProperty(opponent_property["colour"],opponent_property["set_index"],opppCard)
+                player.removeProperty(my_property["colour"],my_property["set_index"],mypCard)
+                player.addProperty(my_set["colour"],my_set["set_index"],opppCard)
+                
+                # TODO: opponent needs to choose set to add his new property to
+                # will be part of logic for rebuttals (JSN)
+            elif action_ID == 7:
+                # debt collector
+                # TODO: opponent needs to choose cards worth $5M
+                pass
+            elif action_ID == 8:
+                # it's my birthday
+                # TODO: each opponent gives $2M
+                pass
+            elif action_ID == 9:
+                # deal breaker
+                opponent = self.players[self.agents[self.action_context["opponent"]]]
+                opponent_set = self.action_context["opponent_set"]
 
-                    player.addProperty(my_set["colour"],my_set["set_index"],pCard)
-                elif action_ID == 5:
-                    # sly deal
-                    opponent = self.players[self.agents[self.action_context["opponent"]]]
-                    opponent_property = self.action_context["opponent_property"]
-                    pCard = self.get_property_card_from_id(opponent_property["colour"],opponent_property["set_index"],opponent_property["card"])
-                    my_set = self.action_context["my_set"]
+                pSet_taken = opponent.removeSet(opponent_set["colour"],opponent_set["set_index"])
 
-                    opponent.removeProperty(opponent_property["colour"],opponent_property["set_index"],pCard)
-                    player.addProperty(my_set["colour"],my_set["set_index"],pCard)
-                elif action_ID == 6:
-                    # forced deal
-                    opponent = self.players[self.agents[self.action_context["opponent"]]]
-                    opponent_property = self.action_context["opponent_property"]
-                    opppCard = self.get_property_card_from_id(opponent_property["colour"],opponent_property["set_index"],opponent_property["card"])
-                    my_property = self.action_context["my_property"]
-                    mypCard = self.get_property_card_from_id(my_property["colour"],my_property["set_index"],my_property["card"])
-                    my_set = self.action_context["my_set"]
+                for pSet in player.sets[opponent_set["colour"]]:
+                    if pSet.isEmpty():
+                        pSet = pSet_taken
+                        replaced = True
+                if not replaced:
+                    player.sets[opponent_set["colour"]].append(pSet_taken)
+            elif action_ID > 9 and action_ID < 15:
+                # rent
+                my_set = self.action_context["my_set"]
+                # TODO: each opponent gives money based on rent
+            elif action_ID == 15:
+                # wild rent
+                my_set = self.action_context["my_set"]
+                opponent = self.players[self.agents[self.action_context["opponent"]]]
 
-                    opponent.removeProperty(opponent_property["colour"],opponent_property["set_index"],opppCard)
-                    player.removeProperty(my_property["colour"],my_property["set_index"],mypCard)
-                    player.addProperty(my_set["colour"],my_set["set_index"],opppCard)
-                    
-                    # TODO: opponent needs to choose set to add his new property to
-                    # will be part of logic for rebuttals (JSN)
-                elif action_ID == 7:
-                    # debt collector
-                    # TODO: opponent needs to choose cards worth $5M
-                    pass
-                elif action_ID == 8:
-                    # it's my birthday
-                    # TODO: each opponent gives $2M
-                    pass
-                elif action_ID == 9:
-                    # deal breaker
-                    opponent = self.players[self.agents[self.action_context["opponent"]]]
-                    opponent_set = self.action_context["opponent_set"]
+                # TODO: opponent gives money based on rent
+            elif action_ID == 16:
+                # just say no
 
-                    pSet_taken = opponent.removeSet(opponent_set["colour"],opponent_set["set_index"])
+                # TODO: implement rebuttal stuff  
+                pass
 
-                    for pSet in player.sets[opponent_set["colour"]]:
-                        if pSet.isEmpty():
-                            pSet = pSet_taken
-                            replaced = True
-                    if not replaced:
-                        player.sets[opponent_set["colour"]].append(pSet_taken)
-                elif action_ID > 9 and action_ID < 15:
-                    # rent
-                    my_set = self.action_context["my_set"]
-                    # TODO: each opponent gives money based on rent
-                elif action_ID == 15:
-                    # wild rent
-                    my_set = self.action_context["my_set"]
-                    opponent = self.players[self.agents[self.action_context["opponent"]]]
+            self.actions_left[agent] -= 1
 
-                    # TODO: opponent gives money based on rent
-                elif action_ID == 16:
-                    # just say no
+        self.infos[agent]["action_mask"] = action_mask
 
-                    # TODO: implement rebuttal stuff  
-                    pass
-            elif self.action_context["decision"] == 0:
-                # choose opponent
-                self.set_action_mask_opponent(agent, action_mask)
-            elif self.action_context["decision"] == 1:
-                # choose opponent property
-                opponent = self.action_context["opponent"]
-                self.set_action_mask_property_card(player, action_mask)
-            elif self.action_context["decision"] == 2:
-                # choose my property
-                self.set_action_mask_property_card(player, action_mask)
-            elif self.action_context["decision"] == 3:
-                # choose set
-                self.set_action_mask_set_index(player, action_mask, )
+        # Round done, next agent
+        if self.actions_left[agent] == 1:
+            self.actions_left[agent] = 3
+            self.agent_selection = self._agent_selector.next()
 
-        if self.render_mode == "human":
-            self.render()
+            if self.render_mode == "human":
+                self.render()
+
 
     def observe(self,agent):
         """
@@ -403,9 +490,9 @@ class MonopolyDeal(AECEnv):
             property[colour]["full_set"] = full_set
         
         # Observe money
-        money = np.zeros((self.num_unique_money), dtype=np.int8)
+        money = np.zeros((self.num_unique_cards), dtype=np.int8)
         for card in player.money:
-            money[card.id-34] += 1  # -34 to make 1M index go to 0
+            money[card.id] += 1  # -34 to make 1M index go to 0
 
         # Observe opponent properties
         opponent_property = {}
@@ -425,10 +512,10 @@ class MonopolyDeal(AECEnv):
             opponent_property[colour]["full_set"] = full_set
         
         # Observe opponent money
-        opponent_money = np.zeros((self.num_opponents,self.num_unique_money), dtype=np.int8)
+        opponent_money = np.zeros((self.num_opponents,self.num_unique_cards), dtype=np.int8)
         for oind,opponent in enumerate(opponents):
             for card in self.players[opponent].money:
-                opponent_money[oind,card.id-34] += 1
+                opponent_money[oind,card.id] += 1
         
         # Observe actions left
         actions_left = self.actions_left[agent]
@@ -441,7 +528,7 @@ class MonopolyDeal(AECEnv):
         # Observe action context
         action_context = self.action_context
 
-        observation = {
+        self.observations[agent]["observation"] = {
             "hand": hand,
             "property": property,
             "money": money,
@@ -451,13 +538,14 @@ class MonopolyDeal(AECEnv):
             "discard_pile": discard_pile,
             "action_context": action_context
         }
-        return observation
+        return self.observations[agent]
         
     def reset_action_context(self):
         self.action_context = {
-            "action": np.int8(-1),
             "decision": np.int8(-1),
-            "opponent": np.int8(-1),
+            "action": np.int8(-1),
+            "hand_card": np.int8(-1),
+            "opponent_ID": np.int8(-1),
             "opponent_property": {
                 "colour": np.int8(-1),
                 "set_index": np.int8(-1),
@@ -482,7 +570,7 @@ class MonopolyDeal(AECEnv):
         action_mask = {
             "action_ID": np.zeros(self.num_actions, dtype=np.int8),
             "hand_card": np.zeros(self.num_unique_cards, dtype=np.int8),
-            "opponent": np.zeros(self.num_opponents, dtype=np.int8),
+            "opponent_ID": np.zeros(self.num_opponents+1, dtype=np.int8),
             "property_card": {
                 "colour": np.zeros(self.num_unique_colours, dtype=np.int8),
                 "set_index": np.zeros(self.max_sets_per_property, dtype=np.int8),
@@ -605,71 +693,55 @@ class MonopolyDeal(AECEnv):
     
         if action_ID == 2:      # money
             for card in player.hand:
-                if isinstance(card,MoneyCard):
-                    action_mask["hand_card"][card.id] = 1
-            self.action_context["decision"] = -1
+                action_mask["hand_card"][card.id] = 1
 
         elif action_ID == 3:    # property
             for card in player.hand:
                 if isinstance(card,PropertyCard):
                     action_mask["hand_card"][card.id] = 1
 
-            self.action_context["decision"] = -1
-
         elif action_ID == 4:    # wild property
             action_mask["hand_card"][17] = 1
-            self.action_context["decision"] = -1
 
         elif action_ID == 5:    # sly deal
             action_mask["hand_card"][23] = 1
-            self.action_context["decision"] = 0
 
         elif action_ID == 6:    # forced deal
             action_mask["hand_card"][21] = 1
-            self.action_context["decision"] = 0
 
         elif action_ID == 7:    # debt collector
             action_mask["hand_card"][22] = 1
-            self.action_context["decision"] = 0
 
         elif action_ID == 8:    # its my birthday
             action_mask["hand_card"][24] = 1
-            self.action_context["decision"] = -1
 
         elif action_ID == 9:    # deal breaker
             action_mask["hand_card"][26] = 1
-            self.action_context["decision"] = 0
 
         elif action_ID == 10:    # rent, red/yellow
             action_mask["hand_card"][28] = 1
-            self.action_context["decision"] = 3
 
         elif action_ID == 11:    # rent, green/dark blue
             action_mask["hand_card"][29] = 1
-            self.action_context["decision"] = 3
 
         elif action_ID == 10:    # rent, pink/orange
             action_mask["hand_card"][30] = 1
-            self.action_context["decision"] = 3
 
         elif action_ID == 10:    # rent, black/light green
             action_mask["hand_card"][31] = 1
-            self.action_context["decision"] = 3
 
         elif action_ID == 10:    # rent, brown/light blue
             action_mask["hand_card"][32] = 1
-            self.action_context["decision"] = 3
 
         elif action_ID == 10:    # rent, wild
             action_mask["hand_card"][33] = 1
-            self.action_context["decision"] = 3
 
     def set_action_mask_opponent(self, agent, action_mask):
         action_mask["opponent"] = np.ones(self.num_opponents, dtype=np.int8)
         action_mask["opponent"][self.agents.index(agent)] = 0
 
     def set_action_mask_set_index(self, player, action_mask):
-        # TODO: need a separate set_index action mask depending on card played
+        # TODO: do this 
         for cind,pSets in enumerate(player.sets.values()):
             for pind,pSet in enumerate(pSets):
                 if not pSet.isEmpty() and not pSet.isOnlyWild():
@@ -680,7 +752,7 @@ class MonopolyDeal(AECEnv):
                     break
                  
     def get_hand_card_from_id(self, player, ID):
-        IDs = [card.ID for card in player.hand]
+        IDs = [card.id for card in player.hand]
         index = IDs.index(ID)
         card = copy.deepcopy(player.hand[index])
         return card
@@ -688,7 +760,7 @@ class MonopolyDeal(AECEnv):
     def get_property_card_from_id(self, player, colour, set_index, ID):
         pSets = player.sets[colour]
         pSet = pSets[set_index]
-        IDs = [card.ID for card in pSet.properties]
+        IDs = [card.id for card in pSet.properties]
         index = IDs.index(ID)
         card = copy.deepcopy(pSet.properties[index])
         return card
@@ -701,6 +773,50 @@ class MonopolyDeal(AECEnv):
         Renders the environment. In human mode, it can print to terminal, open
         up a graphical window, or open up some other display that a human can see and understand.
         """
+
+        agent = self.agent_selection
+        player = self.players[self.agent_selection]
+
+        action_description = {
+            0: "Skip",
+            1: "Move Property",
+            2: "Play Money",
+            3: "Play Property",
+            4: "Play Wild Property",
+            5: "Sly Deal",
+            6: "Forced Deal",
+            7: "Debt Collector",
+            8: "It's My Birthday",
+            9: "Deal Breaker",
+            10: "Red/Yellow Rent",
+            11: "Green/DarkBlue Rent",
+            12: "Pink/Orange Rent",
+            13: "Blue/LightGreen Rent",
+            14: "Blue/LightBlue Rent",
+            15: "Wild Rent",
+            16: "Just Say No"
+        }
+
+        properties_rendered = []
+        for colour in player.sets:
+            for pSet in player.sets[colour]:
+                if not pSet.isEmpty():
+                    properties_rendered.insert(0,pSet.properties)
+
+
+        print("-------------------- " + str(agent) + " (Turn " + str(4-self.actions_left[agent]) + ") --------------------")
+        print("")
+        print("Deck Size: " + str(self.deck.deckSize()))
+        print("Discard Size: " + str(self.deck.discardSize()))
+        print("")
+        print("money: " + str(player.money))
+        print("")
+        print("- Hand :    " + str(player.hand))
+        print("- Money :    " + str(player.money))
+        print("- Properties:    " + str(properties_rendered))
+        print("")
+        print("[Action] " + str(action_description[self.action_context["action"]]))
+        print("")
 
 
     def close(self):
