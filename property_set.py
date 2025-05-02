@@ -8,6 +8,9 @@ class PropertySet:
         self.hasHouse = False
         self.hasHotel = False
 
+    def __repr__(self):
+        return str([repr(card) for card in self.properties])
+
     def addProperty(self, property):
         if self.canAddProperty(property):
             self.properties.append(property)
@@ -62,4 +65,4 @@ class PropertySet:
         return True
     
     def isEmpty(self):
-        return 
+        return not self.properties

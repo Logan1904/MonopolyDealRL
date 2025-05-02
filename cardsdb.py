@@ -62,6 +62,6 @@ for i in range(6):
     ALL_CARDS.append(MoneyCard(34, "1M", 1))
 
 for i in range(8):
-    ALL_CARDS.append(MoneyCard(25, "Pass Go", 1))
+    ALL_CARDS.append(ActionCard(25, "Pass Go", 1, "Take 2 cards"))
 
     

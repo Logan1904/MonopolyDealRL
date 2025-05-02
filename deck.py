@@ -27,3 +27,9 @@ class Deck:
 
     def discardCard(self, card):
         self.discard_pile.append(card)
+
+    def deckSize(self):
+        return len(self.deck)
+
+    def discardSize(self):
+        return len(self.discard_pile)
