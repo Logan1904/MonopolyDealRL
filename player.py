@@ -30,7 +30,7 @@ class Player:
         }
 
         self.sets = {
-            colour: [PropertySet(colour,maxSize),PropertySet(colour,maxSize)] for colour,maxSize in property_set_number.items()
+            colour: [PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize)] for colour,maxSize in property_set_number.items()
         }
 
     def __repr__(self):
@@ -40,10 +40,10 @@ class Player:
         cards = self.deck.getCards(2)
         self.hand += cards
     
-    def removeHandCardByID(self, ID):
-        for card in self.hand:
-            if card.id == ID:
-                self.hand.remove(card)
+    def removeHandCard(self, card):
+        for hand_card in self.hand:
+            if hand_card.id == card.id:
+                self.hand.remove(hand_card)
                 break
 
     def removeProperty(self, colour, set_index, card):
