@@ -16,9 +16,9 @@ for i in range(2):
     ALL_CARDS.append(PropertyCard(1, "Brown Property", 1, ["Brown"]))
     ALL_CARDS.append(PropertyCard(2, "Light Green Property", 2, ["Light Green"]))
 
-    ALL_CARDS.append(PropertyCard(21, "Pink/Orange Property", 2, ["Pink", "Orange"]))
-    ALL_CARDS.append(PropertyCard(22, "Red/Yellow Property", 3, ["Red", "Yellow"]))
-    ALL_CARDS.append(PropertyCard(23, "Wild Property", 0, ["Wild"]))
+    ALL_CARDS.append(PropertyCard(13, "Pink/Orange Property", 2, ["Pink", "Orange"]))
+    ALL_CARDS.append(PropertyCard(11, "Red/Yellow Property", 3, ["Red", "Yellow"]))
+    ALL_CARDS.append(PropertyCard(17, "Wild Property", 0, ["Wild"]))
 
     ALL_CARDS.append(ActionCard(19, "Hotel", 4, "Add on top of a house"))
     ALL_CARDS.append(ActionCard(20, "Double The Rent", 1, "Double the rent"))
