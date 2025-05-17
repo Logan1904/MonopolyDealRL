@@ -52,11 +52,16 @@ class PropertySet:
             rent = 2 ** (len(self.properties) - 1)
         elif self.colour == "Black":
             rent = len(self.properties)
+        elif self.colour == "Wild":
+            rent = 0
     
         return rent + (3 if self.hasHouse else 0) + (4 if self.hasHotel else 0)
     
     def isCompleted(self):
-        return len(self.properties) >= self.maxSize
+        if self.colour != "Wild":
+            return len(self.properties) >= self.maxSize
+        else:
+            return False
     
     def isOnlyWild(self):
         for p in self.properties:

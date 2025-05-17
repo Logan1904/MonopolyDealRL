@@ -1,5 +1,5 @@
 # Number of cards required for a set
-set_length = {
+SET_LENGTH = {
     "Dark Blue": 2,
     "Brown": 2,
     "Light Green": 2,
@@ -9,7 +9,22 @@ set_length = {
     "Yellow": 3,
     "Orange": 3,
     "Pink": 3,
-    "Black": 4
+    "Black": 4,
+}
+
+# Number of max sets 
+MAX_SETS = {
+    "Dark Blue": 3,
+    "Brown": 3,
+    "Light Green": 3,
+    "Green": 5,
+    "Light Blue": 5,
+    "Red": 5,
+    "Yellow": 5,
+    "Orange": 5,
+    "Pink": 5,
+    "Black": 7,
+    "Wild": 2
 }
 
 # Colour → Number
@@ -23,7 +38,8 @@ colour_mapping = {
     "Yellow": 6,
     "Orange": 7,
     "Pink": 8,
-    "Black": 9
+    "Black": 9,
+    "Wild": 17
 }
 
 action_description = {
