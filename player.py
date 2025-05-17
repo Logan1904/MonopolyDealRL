@@ -2,6 +2,7 @@ import copy
 
 from property_set import *
 from card import *
+from mappings import *
 
 class Player:
     def __init__(self, name, deck):
@@ -15,22 +16,10 @@ class Player:
         cards = self.deck.getCards(5)
         self.hand += cards
 
-        # initialise properties
-        property_set_number = {
-            "Dark Blue": 2,
-            "Brown": 2,
-            "Light Green": 2,
-            "Green": 3,
-            "Light Blue": 3,
-            "Red": 3,
-            "Yellow": 3,
-            "Orange": 3,
-            "Pink": 3,
-            "Black": 4
-        }
-
         self.sets = {
-            colour: [PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize)] for colour,maxSize in property_set_number.items()
+            colour: [PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize),
+                     PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize),
+                     PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize)] for colour,maxSize in SET_LENGTH.items()
         }
 
     def __repr__(self):
@@ -39,12 +28,22 @@ class Player:
     def drawTwo(self):
         cards = self.deck.getCards(2)
         self.hand += cards
+
+    def removeHandCardById(self, card_id):
+        for i,card in enumerate(self.hand):
+            if card.id == card_id:
+                return self.hand.pop(i)
     
     def removeHandCard(self, card):
         for hand_card in self.hand:
             if hand_card.id == card.id:
                 self.hand.remove(hand_card)
                 break
+
+    def getHandCardById(self, card_id):
+        for i,card in enumerate(self.hand):
+            if card.id == card_id:
+                return copy.deepcopy(card)
 
     def removeProperty(self, colour, set_index, card):
         pSet = self.sets[colour][set_index]
@@ -54,8 +53,20 @@ class Player:
         pSet = self.sets[colour][set_index]
         pSet.addProperty(card)
 
-    def removeSet(self, colour, set_index):
-        pSet = copy.deepcopy(self.sets[colour][set_index])
+    def removePropertyById(self, colour, set_index, card):
+        pSet = self.sets[colour][set_index]
+        for i,pCard in enumerate(pSet.properties):
+            if pCard.id == card:
+                return pSet.properties.pop(i)
+
+    def getPropertyById(self, colour, set_index, card):
+        pSet = self.sets[colour][set_index]
+        for i,pCard in enumerate(pSet.properties):
+            if pCard.id == card:
+                return copy.deepcopy(pCard)
+
+    def removeSetByID(self, colour, set_index):
+        pSet = self.sets[colour][set_index]
         self.sets[colour][set_index].clearSet()
         return pSet
 
