@@ -42,7 +42,7 @@ colour_mapping = {
     "Wild": 17
 }
 
-action_description = {
+ACTION_DESCRIPTION = {
     0: "Skip",
     1: "Move Property",
     2: "Play Money",
@@ -60,4 +60,18 @@ action_description = {
     14: "Blue/LightBlue Rent",
     15: "Wild Rent",
     16: "Just Say No"
+}
+
+COLOUR_STYLE_MAP = {
+    "Dark Blue": "blue",
+    "Brown": "dark_goldenrod",
+    "Light Green": "bright_green",
+    "Green": "green",
+    "Light Blue": "cyan",
+    "Red": "red",
+    "Yellow": "yellow",
+    "Orange": "bright_red",
+    "Pink": "bright_magenta",
+    "Black": "grey54",
+    "Wild": "bright_white"
 }

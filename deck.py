@@ -11,9 +11,9 @@ class Deck:
         random.shuffle(self.deck)
     
     def draw(self):
-        if len(self.deck) == 0 and len(self.discard) > 0:
-            self.deck = self.discard
-            self.discard = []
+        if len(self.deck) == 0 and len(self.discard_pile) > 0:
+            self.deck = self.discard_pile
+            self.discard_pile = []
             self.shuffle()
             
         return self.deck.pop(0)

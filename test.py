@@ -9,13 +9,7 @@ for agent in env.agent_iter():
     if termination or truncation:
         action = None
     else:
-        # invalid action masking is optional and environment-dependent
-        if "action_mask" in info:
-            mask = info["action_mask"]
-        elif isinstance(observation, dict) and "action_mask" in observation:
-            mask = observation["action_mask"]
-        else:
-            mask = None
+        mask = observation["action_mask"]
         action = env.action_space(agent).sample(mask) # this is where you would insert your policy
 
     env.step(action)
