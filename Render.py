@@ -25,8 +25,8 @@ class Render():
             print("Deck Size: " + str(deck.deckSize()))
             print("Discard Size: " + str(deck.discardSize()))
             print("")
-            self.render_list(player.hand, label="Hand")
-            self.render_list(player.money, label="Money")
+            self.render_hand(player.hand)
+            self.render_money(player.money)
             print("Properties: ")
             self.render_properties(player.sets)
             print("")
@@ -35,8 +35,8 @@ class Render():
             print("Deck Size: " + str(deck.deckSize()))
             print("Discard Size: " + str(deck.discardSize()))
             print("")
-            self.render_list(player.hand, label="Hand")
-            self.render_list(player.money, label="Money")
+            self.render_hand(player.hand)
+            self.render_money(player.money)
             print("Properties: ")
             self.render_properties(player.sets)
             print("")
@@ -69,25 +69,48 @@ class Render():
 
         console.print(table)
 
-    def render_list(self, cards, label):
-        console = Console()
-
+    def render_hand(self, hand):
         # Sort cards
-        sorted_cards = sorted(cards, key=self.get_card_sort_key)
+        sorted_cards = sorted(hand, key=self.sort_hand)
 
         # Build styled line
-        line = Text(f"{label}: ")
+        line = Text(f"Hand: ")
         for card in sorted_cards:
             style = self.get_card_style(card)
             line.append(f"[{card.name}] ", style=style)
 
-        console.print(line)
+        self.console.print(line)
+
+    def render_money(self, money):
+        # Sort cards
+        sorted_cards = sorted(money, key=self.sort_money)
+
+        # Count frequencies by card name and type
+        card_counter = {}
+        for card in sorted_cards:
+            key = (card.name, type(card))
+            if key not in card_counter:
+                card_counter[key] = {"card": card, "count": 0}
+            card_counter[key]["count"] += 1
+
+        # Build table
+        table = Table(title="Money", show_lines=True)
+        table.add_column("Card")
+        table.add_column("Count")
+
+        for entry in card_counter.values():
+            card = entry["card"]
+            count = entry["count"]
+            style = self.get_card_style(card)
+            table.add_row(Text(card.name, style=style), str(count))
+
+        self.console.print(table)
 
     def render_action(self, agents, action_context):
         console = Console()
 
         table = Table(title="Action", show_lines=True)
-        table.add_column("Field", style="bold cyan", justify="right")
+        table.add_column("Field", style="bold cyan")
         table.add_column("Value")
 
         # Always show action
@@ -150,7 +173,17 @@ class Render():
         elif isinstance(card, PropertyCard):
             return COLOUR_STYLE_MAP[card.colours[0]]
         
-    def get_card_sort_key(self, card):
+    def sort_hand(self, card):
+        if isinstance(card, MoneyCard):
+            return 3
+        elif isinstance(card, RentCard):
+            return 2
+        elif isinstance(card, ActionCard):
+            return 1
+        elif isinstance(card, PropertyCard):
+            return 0
+        
+    def sort_money(self, card):
         if isinstance(card, MoneyCard):
             return 0
         elif isinstance(card, RentCard):

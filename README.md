@@ -14,4 +14,4 @@ Work in progress...
     * Giving money
     * Choosing where to place a given forced deal property
 * Functionality for choosing which cards to discard (only max 7 in hand)
-* Make money rendering into table with card and number of those cards (visually better as game goes on, a lot of money cards in a list is hard to read)
+* Put action mask into separate class
