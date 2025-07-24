@@ -3,11 +3,11 @@ from card import *
 # Array where all the cards of the deck will be stored
 ALL_CARDS = []
 
-ALL_CARDS.append(PropertyCard(10, "Light Green/Black", 2, ["Black","Light Green"]))
-ALL_CARDS.append(PropertyCard(12, "Brown/Light Blue", 1, ["Black","Light Green"]))
-ALL_CARDS.append(PropertyCard(14, "Black/Light Blue", 4, ["Black","Light Green"]))
-ALL_CARDS.append(PropertyCard(15, "Green/Black", 4, ["Black","Light Green"]))
-ALL_CARDS.append(PropertyCard(16, "Green/Dark Blue", 4, ["Black","Light Green"]))
+ALL_CARDS.append(PropertyCard(10, "Light Green/Black", 2, ["Light Green","Black"]))
+ALL_CARDS.append(PropertyCard(12, "Brown/Light Blue", 1, ["Brown","Light Blue"]))
+ALL_CARDS.append(PropertyCard(14, "Black/Light Blue", 4, ["Black","Light Blue"]))
+ALL_CARDS.append(PropertyCard(15, "Green/Black", 4, ["Green","Black"]))
+ALL_CARDS.append(PropertyCard(16, "Green/Dark Blue", 4, ["Green","Dark Blue"]))
 
 ALL_CARDS.append(MoneyCard(39, "10M", 10))
 

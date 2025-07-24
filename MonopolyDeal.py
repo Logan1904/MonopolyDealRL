@@ -32,7 +32,6 @@ def env(render_mode=None):
     env = wrappers.OrderEnforcingWrapper(env)
     return env
 
-
 class MonopolyDeal(AECEnv):
     """
     The metadata holds environment constants. From gymnasium, we inherit the "render_modes",
@@ -517,7 +516,6 @@ class MonopolyDeal(AECEnv):
                 opponent_set = self.action_context["opponent_set"]
 
                 # decode colours
-                print(opponent_set)
                 s_colour = self.decode_colour(opponent_set["colour"])
 
                 # steal set
@@ -922,9 +920,9 @@ class MonopolyDeal(AECEnv):
 
                 # get property
                 pCard = opponent.getPropertyById(colour,opponent_property["set_index"],opponent_property["card"])
-            
+
             for cind,(colour,pSets) in enumerate(player.sets.items()):
-                for pind,pSet in enumerate(pSets):
+                for pSet in pSets:
                     if pSet.canAddProperty(pCard):
                         action_mask["set"]["colour"][cind] = 1
                         break
@@ -932,7 +930,7 @@ class MonopolyDeal(AECEnv):
             if self.action_context["action"] == 9:
                 # deal breaker, unmask all full sets
                 for cind,(colour,pSets) in enumerate(player.sets.items()):
-                    for pind,pSet in enumerate(pSets):
+                    for pSet in pSets:
                         if pSet.isCompleted():
                             action_mask["set"]["colour"][cind] = 1
                             break
@@ -944,7 +942,7 @@ class MonopolyDeal(AECEnv):
 
                 if rCard.isWild():
                     for cind,(colour,pSets) in enumerate(player.sets.items()):
-                        for pind,pSet in enumerate(pSets):
+                        for pSet in pSets:
                             if not pSet.isEmpty():
                                 action_mask["set"]["colour"][cind] = 1
                                 break
@@ -952,7 +950,7 @@ class MonopolyDeal(AECEnv):
                     for cind,(colour,pSets) in enumerate(player.sets.items()):
                         if colour not in rCard.colours:
                             continue
-                        for pind,pSet in enumerate(pSets):
+                        for pSet in pSets:
                             if not pSet.isEmpty():
                                 action_mask["set"]["colour"][cind] = 1
                                 break
@@ -1063,7 +1061,6 @@ class MonopolyDeal(AECEnv):
             print("[Action] " + str(ACTION_DESCRIPTION[self.action_context["action"]]))
             print(self.action_context)
 
-
     def rich_property_sets(self, sets):
         console = Console()
         table = Table(show_lines=True)
@@ -1082,9 +1079,7 @@ class MonopolyDeal(AECEnv):
                 else:
                     cell_text = Text()
                     for card in pSet.properties:
-                        card_name = card.name
-                        style = COLOUR_STYLE_MAP[colour]
-                        cell_text.append(f"{card_name}\n", style=style)  # newline for vertical stack
+                        cell_text.append(f"{card.name}\n", style=COLOUR_STYLE_MAP[colour])  # newline for vertical stack
                     row.append(cell_text)
                     
             table.add_row(*row)
@@ -1094,39 +1089,37 @@ class MonopolyDeal(AECEnv):
     def render_list(self, cards, label):
         console = Console()
 
-        # Sort cards by type priority
+        # Sort cards
         sorted_cards = sorted(cards, key=self.get_card_sort_key)
 
         # Build styled line
         line = Text(f"{label}: ")
         for card in sorted_cards:
-            name = getattr(card, "name", "Unknown")
             style = self.get_card_style(card)
-            line.append(f"[{name}] ", style=style)
+            line.append(f"[{card.name}] ", style=style)
 
         console.print(line)
 
     def get_card_style(self, card):
         if isinstance(card, MoneyCard):
             return "green"
-        elif isinstance(card, ActionCard):
-            return "red"
         elif isinstance(card, RentCard):
             return "white"
-        else:
+        elif isinstance(card, ActionCard):
+            return "red"
+        elif isinstance(card, PropertyCard):
             return COLOUR_STYLE_MAP[card.colours[0]]
         
     def get_card_sort_key(self, card):
-        if isinstance(card, PropertyCard):
+        if isinstance(card, MoneyCard):
             return 0
-        elif isinstance(card, ActionCard):
+        elif isinstance(card, RentCard):
             return 1
-        elif isinstance(card, MoneyCard):
+        elif isinstance(card, ActionCard):
             return 2
-        return 3  # fallback for unknown types
+        elif isinstance(card, PropertyCard):
+            return 3
 
-
-        
     def close(self):
         """
         Close should release any graphical displays, subprocesses, network connections

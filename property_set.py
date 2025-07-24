@@ -17,7 +17,7 @@ class PropertySet:
 
     def canAddProperty(self, property):
         not_wild_if_empty = not (len(self.properties) == 0 and "Wild" in property.colours)
-        correct_colour = self.colour in property.colours
+        correct_colour = self.colour in property.colours or "Wild" in property.colours
         is_not_full = not (self.isCompleted())
 
         return not_wild_if_empty and correct_colour and is_not_full
