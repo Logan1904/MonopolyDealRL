@@ -1,4 +1,4 @@
-from card import *
+from Card import *
 
 class PropertySet:
     def __init__(self, colour, maxSize):

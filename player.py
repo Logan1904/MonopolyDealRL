@@ -1,7 +1,7 @@
 import copy
 
-from property_set import *
-from card import *
+from PropertySet import *
+from Card import *
 from mappings import *
 
 class Player:

@@ -1,6 +1,6 @@
 # Number of cards required for a set
 SET_LENGTH = {
-    "Dark Blue": 2,
+    "Blue": 2,
     "Brown": 2,
     "Light Green": 2,
     "Green": 3,
@@ -14,7 +14,7 @@ SET_LENGTH = {
 
 # Number of max sets 
 MAX_SETS = {
-    "Dark Blue": 3,
+    "Blue": 3,
     "Brown": 3,
     "Light Green": 3,
     "Green": 5,
@@ -28,18 +28,18 @@ MAX_SETS = {
 }
 
 # Colour → Number
-colour_mapping = {
-    "Dark Blue": 0,
-    "Brown": 1,
-    "Light Green": 2,
-    "Green": 3,
-    "Light Blue": 4,
-    "Red": 5,
-    "Yellow": 6,
-    "Orange": 7,
-    "Pink": 8,
-    "Black": 9,
-    "Wild": 17
+COLOUR_MAPPING = {
+    0: "Blue",
+    1: "Brown",
+    2: "Light Green",
+    3: "Green",
+    4: "Light Blue",
+    5: "Red",
+    6: "Yellow",
+    7: "Orange",
+    8: "Pink",
+    9: "Black",
+    17: "Wild"
 }
 
 ACTION_DESCRIPTION = {
@@ -63,7 +63,7 @@ ACTION_DESCRIPTION = {
 }
 
 COLOUR_STYLE_MAP = {
-    "Dark Blue": "blue",
+    "Blue": "blue",
     "Brown": "dark_goldenrod",
     "Light Green": "bright_green",
     "Green": "green",
@@ -74,4 +74,47 @@ COLOUR_STYLE_MAP = {
     "Pink": "bright_magenta",
     "Black": "grey54",
     "Wild": "bright_white"
+}
+
+CARD_MAPPING = {
+    0: "Blue",
+    1: "Brown",
+    2: "Light Green",
+    3: "Green",
+    4: "Light Blue",
+    5: "Red",
+    6: "Yellow",
+    7: "Orange",
+    8: " Pink",
+    9: "Black",
+    10: "Light Green/Black",
+    11: "Red/Yellow", 
+    12: "Brown/Light Blue",
+    13: "Pink/Orange",
+    14: "Black/Light Blue",
+    15: "Green/Black",
+    16: "Green/Blue",
+    17: "Wild",
+    18: "House",
+    19: "Hotel",
+    20: "Double Rent",
+    21: "Forced Deal",
+    22: "Debt Collector",
+    23: "Sly Deal",
+    24: "It's My Birthday",
+    25: "Pass GO",
+    26: "Deal Breaker",
+    27: "Just Say No",
+    28: "Red/Yellow Rent",
+    29: "Green/Blue Rent",
+    30: "Pink/Orange Rent",
+    31: "Black/Light Green Rent",
+    32: "Brown/Light Blue Rent",
+    33: "Wild Rent",
+    34: "1M",
+    35: "2M",
+    36: "3M",
+    37: "4M",
+    38: "5M",
+    39: "10M"
 }

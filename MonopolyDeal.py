@@ -9,9 +9,9 @@ from rich.text import Text
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector, wrappers
 
-from deck import *
-from player import *
-from card import *
+from Deck import *
+from Player import *
+from Card import *
 from mappings import *
 
 def env(render_mode=None):
@@ -1018,7 +1018,7 @@ class MonopolyDeal(AECEnv):
                                 action_mask["set"]["set_index"][pind] = 1
                  
     def decode_colour(self, id):
-        return list(colour_mapping.keys())[list(colour_mapping.values()).index(id)]
+        return COLOUR_MAPPING[id]
 
     def render(self, mode):
         """
@@ -1058,8 +1058,7 @@ class MonopolyDeal(AECEnv):
             print("")
             print("")
         elif mode == 'action':
-            print("[Action] " + str(ACTION_DESCRIPTION[self.action_context["action"]]))
-            print(self.action_context)
+            self.render_action()
 
     def rich_property_sets(self, sets):
         console = Console()
@@ -1099,6 +1098,63 @@ class MonopolyDeal(AECEnv):
             line.append(f"[{card.name}] ", style=style)
 
         console.print(line)
+
+    def render_action(self):
+        console = Console()
+
+        table = Table(title="Action", show_lines=True)
+        table.add_column("Field", style="bold cyan", justify="right")
+        table.add_column("Value")
+
+        # Always show action
+        action = self.action_context["action"]
+        table.add_row("Action:", f"{ACTION_DESCRIPTION[action]}")
+
+        if action == 0:
+            pass
+        elif action == 1:
+            table.add_row("Card:", f"{CARD_MAPPING[self.action_context["my_property"]["card"]]}")
+            table.add_row("Moved to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
+            table.add_row("Moved to Set:", str(self.action_context["my_set"]["set_index"]))
+        elif action == 2:
+            card_ID = self.action_context["hand_card"]
+            table.add_row("Card:", f"{CARD_MAPPING[card_ID]}")
+        elif action in [3,4]:
+            card_ID = self.action_context["hand_card"]
+            table.add_row("Card:", f"{CARD_MAPPING[card_ID]}")
+            table.add_row("Played to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
+            table.add_row("Played to Set:", str(self.action_context["my_set"]["set_index"]))
+        elif action == 5:
+            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
+            card_ID = self.action_context["opponent_property"]["card"]
+            table.add_row("Stealing:", f"{CARD_MAPPING[card_ID]}")
+            table.add_row("Played to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
+            table.add_row("Played to Set:", str(self.action_context["my_set"]["set_index"]))
+        elif action == 6:
+            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
+            card_ID = self.action_context["my_property"]["card"]
+            table.add_row("Swapping:", f"{CARD_MAPPING[card_ID]}")
+            card_ID = self.action_context["opponent_property"]["card"]
+            table.add_row("For:", f"{CARD_MAPPING[card_ID]}")
+            table.add_row("Played to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
+            table.add_row("Played to Set:", str(self.action_context["my_set"]["set_index"]))
+        elif action in [7,8]:
+            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
+        elif action == 9:
+            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
+            table.add_row("Stealing Colour:", self.action_context["opponent_set"]["colour"])
+            table.add_row("Stealing Set:", self.action_context["opponent_set"]["set_index"])
+        elif action in [10,11,12,13,14]:
+            table.add_row("On Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
+            table.add_row("On Set:", str(self.action_context["my_set"]["set_index"]))
+        elif action == 15:
+            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
+            table.add_row("On Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
+            table.add_row("On Set:", str(self.action_context["my_set"]["set_index"]))
+        elif action in [16]:
+            pass
+        
+        console.print(table)
 
     def get_card_style(self, card):
         if isinstance(card, MoneyCard):
