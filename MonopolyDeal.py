@@ -12,6 +12,7 @@ from pettingzoo.utils import agent_selector, wrappers
 from Deck import *
 from Player import *
 from Card import *
+from Render import *
 from mappings import *
 
 def env(render_mode=None):
@@ -64,7 +65,7 @@ class MonopolyDeal(AECEnv):
         # a mapping between agent name and ID
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
 
-        self.render_mode = render_mode
+        self.renderer = Render()
 
     # Observation space should be defined here.
     @functools.lru_cache(maxsize=None)
@@ -197,7 +198,7 @@ class MonopolyDeal(AECEnv):
         self.deck = Deck()
         self.players = {agent: Player(agent,self.deck) for agent in self.agents}
         self.actions_left = {agent: 3 for agent in self.agents}
-        self.reset_action_context()
+        self.action_context = self.reset_action_context()
 
         # initialise observation dictionary
         self.observations = {agent: {"observation": None, "action_mask": None} for agent in self.agents} 
@@ -312,7 +313,7 @@ class MonopolyDeal(AECEnv):
             self.action_context["decision"] = 3
 
             # unmask my property set index
-            colour = self.decode_colour(property_colour)
+            colour = decode_colour(property_colour)
             self.set_action_mask_property_set_index(target, colour, action_mask)
 
         elif decision == 3:
@@ -331,7 +332,7 @@ class MonopolyDeal(AECEnv):
             self.action_context["decision"] = 4
 
             # unmask my property set index
-            colour = self.decode_colour(property_colour)
+            colour = decode_colour(property_colour)
             self.set_action_mask_property_card(target, colour, property_set_index, action_mask)
 
         elif decision == 4:
@@ -371,7 +372,7 @@ class MonopolyDeal(AECEnv):
             self.action_context["decision"] = 6
 
             # unmask set index
-            colour = self.decode_colour(set_colour)
+            colour = decode_colour(set_colour)
             self.set_action_mask_set_index(target, colour, action_mask)
 
         elif decision == 6:
@@ -409,8 +410,8 @@ class MonopolyDeal(AECEnv):
                 my_set = self.action_context["my_set"]
 
                 # decode colours
-                p_colour = self.decode_colour(my_property["colour"])
-                s_colour = self.decode_colour(my_set["colour"])
+                p_colour = decode_colour(my_property["colour"])
+                s_colour = decode_colour(my_set["colour"])
 
                 # get property
                 pCard = player.removePropertyById(p_colour,my_property["set_index"],my_property["card"])
@@ -432,7 +433,7 @@ class MonopolyDeal(AECEnv):
                 my_set = self.action_context["my_set"]
 
                 # decode colour
-                s_colour = self.decode_colour(my_set["colour"])
+                s_colour = decode_colour(my_set["colour"])
 
                 # get property hand card
                 pCard =  player.removeHandCardById(hand_card)
@@ -448,8 +449,8 @@ class MonopolyDeal(AECEnv):
                 my_property = self.action_context["my_property"]
 
                 # decode colours
-                p_colour = self.decode_colour(opponent_property["colour"])
-                s_colour = self.decode_colour(my_set["colour"])
+                p_colour = decode_colour(opponent_property["colour"])
+                s_colour = decode_colour(my_set["colour"])
 
                 # steal property
                 pCard = opponent.removePropertyById(p_colour,opponent_property["set_index"],opponent_property["card"])
@@ -471,8 +472,8 @@ class MonopolyDeal(AECEnv):
                 my_set = self.action_context["my_set"]
 
                 # decode colours
-                p_colour_opp = self.decode_colour(opponent_property["colour"])
-                s_colour_mine = self.decode_colour(my_set["colour"])
+                p_colour_opp = decode_colour(opponent_property["colour"])
+                s_colour_mine = decode_colour(my_set["colour"])
 
                 # steal property
                 pCard = opponent.removePropertyById(p_colour_opp,opponent_property["set_index"],opponent_property["card"])
@@ -516,7 +517,7 @@ class MonopolyDeal(AECEnv):
                 opponent_set = self.action_context["opponent_set"]
 
                 # decode colours
-                s_colour = self.decode_colour(opponent_set["colour"])
+                s_colour = decode_colour(opponent_set["colour"])
 
                 # steal set
                 pSet_taken = opponent.removeSet(s_colour,opponent_set["set_index"])
@@ -589,7 +590,7 @@ class MonopolyDeal(AECEnv):
                 player.drawTwo()
 
             # Reset action context
-            self.reset_action_context()
+            self.action_context = self.reset_action_context()
             # Unmask valid actions
             self.initialise_action_mask()
             self.set_action_mask_action_ID(player, action_mask)
@@ -676,7 +677,7 @@ class MonopolyDeal(AECEnv):
         return self.observations[agent]
         
     def reset_action_context(self):
-        self.action_context = {
+        action_context = {
             "decision": np.int8(-1),
             "action": np.int8(-1),
             "hand_card": np.int8(-1),
@@ -701,6 +702,8 @@ class MonopolyDeal(AECEnv):
                 "set_index": np.int8(-1)
             }
         }
+
+        return action_context
 
     def initialise_action_mask(self):
         action_mask = {
@@ -900,7 +903,7 @@ class MonopolyDeal(AECEnv):
                 my_property = self.action_context["my_property"]
 
                 # decode colour
-                colour = self.decode_colour(my_property["colour"])
+                colour = decode_colour(my_property["colour"])
 
                 # get property
                 pCard = player.getPropertyById(colour,my_property["set_index"],my_property["card"])
@@ -916,7 +919,7 @@ class MonopolyDeal(AECEnv):
                 opponent_property = self.action_context["opponent_property"]
 
                 # decode colour
-                colour = self.decode_colour(opponent_property["colour"])
+                colour = decode_colour(opponent_property["colour"])
 
                 # get property
                 pCard = opponent.getPropertyById(colour,opponent_property["set_index"],opponent_property["card"])
@@ -965,7 +968,7 @@ class MonopolyDeal(AECEnv):
                 my_property = self.action_context["my_property"]
 
                 # decode colour
-                colour = self.decode_colour(my_property["colour"])
+                colour = decode_colour(my_property["colour"])
 
                 # get property
                 pCard = player.getPropertyById(colour,my_property["set_index"],my_property["card"])
@@ -981,7 +984,7 @@ class MonopolyDeal(AECEnv):
                 opponent_property = self.action_context["opponent_property"]
 
                 # decode colour
-                colour = self.decode_colour(opponent_property["colour"])
+                colour = decode_colour(opponent_property["colour"])
 
                 # get property
                 pCard = opponent.getPropertyById(colour,opponent_property["set_index"],opponent_property["card"])
@@ -1016,170 +1019,9 @@ class MonopolyDeal(AECEnv):
                         for pind,pSet in enumerate(pSets):
                             if not pSet.isEmpty():
                                 action_mask["set"]["set_index"][pind] = 1
-                 
-    def decode_colour(self, id):
-        return COLOUR_MAPPING[id]
-
-    def render(self, mode):
-        """
-        Renders the environment. In human mode, it can print to terminal, open
-        up a graphical window, or open up some other display that a human can see and understand.
-        """
-
-        agent = self.agent_selection
-        player = self.players[self.agent_selection]
-
-        properties_rendered = []
-        for colour in player.sets:
-            for pSet in player.sets[colour]:
-                if not pSet.isEmpty():
-                    properties_rendered.insert(0,pSet.properties)
-
-        if mode == 'pre':
-            print("-"*75 + str(agent) + "-"*75)
-            print("")
-            print("Deck Size: " + str(self.deck.deckSize()))
-            print("Discard Size: " + str(self.deck.discardSize()))
-            print("")
-            self.render_list(player.hand, label="Hand")
-            self.render_list(player.money, label="Money")
-            print("Properties: ")
-            self.rich_property_sets(player.sets)
-            print("")
-        elif mode == 'post':
-            print("")
-            print("Deck Size: " + str(self.deck.deckSize()))
-            print("Discard Size: " + str(self.deck.discardSize()))
-            print("")
-            self.render_list(player.hand, label="Hand")
-            self.render_list(player.money, label="Money")
-            print("Properties: ")
-            self.rich_property_sets(player.sets)
-            print("")
-            print("")
-        elif mode == 'action':
-            self.render_action()
-
-    def rich_property_sets(self, sets):
-        console = Console()
-        table = Table(show_lines=True)
-
-        table.add_column("PropertySet")
-        for colour in sets.keys():
-            table.add_column(colour)
-
-        num_pSets = len(next(iter(sets.values())))
-        for i in range(num_pSets):
-            row = [f"[{i}]"]
-            for colour in sets:
-                pSet = sets[colour][i]
-                if pSet.isEmpty():
-                    row.append(Text("--", style="dim"))
-                else:
-                    cell_text = Text()
-                    for card in pSet.properties:
-                        cell_text.append(f"{card.name}\n", style=COLOUR_STYLE_MAP[colour])  # newline for vertical stack
-                    row.append(cell_text)
                     
-            table.add_row(*row)
-
-        console.print(table)
-
-    def render_list(self, cards, label):
-        console = Console()
-
-        # Sort cards
-        sorted_cards = sorted(cards, key=self.get_card_sort_key)
-
-        # Build styled line
-        line = Text(f"{label}: ")
-        for card in sorted_cards:
-            style = self.get_card_style(card)
-            line.append(f"[{card.name}] ", style=style)
-
-        console.print(line)
-
-    def render_action(self):
-        console = Console()
-
-        table = Table(title="Action", show_lines=True)
-        table.add_column("Field", style="bold cyan", justify="right")
-        table.add_column("Value")
-
-        # Always show action
-        action = self.action_context["action"]
-        table.add_row("Action:", f"{ACTION_DESCRIPTION[action]}")
-
-        if action == 0:
-            pass
-        elif action == 1:
-            table.add_row("Card:", f"{CARD_MAPPING[self.action_context["my_property"]["card"]]}")
-            table.add_row("Moved to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
-            table.add_row("Moved to Set:", str(self.action_context["my_set"]["set_index"]))
-        elif action == 2:
-            card_ID = self.action_context["hand_card"]
-            table.add_row("Card:", f"{CARD_MAPPING[card_ID]}")
-        elif action in [3,4]:
-            card_ID = self.action_context["hand_card"]
-            table.add_row("Card:", f"{CARD_MAPPING[card_ID]}")
-            table.add_row("Played to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
-            table.add_row("Played to Set:", str(self.action_context["my_set"]["set_index"]))
-        elif action == 5:
-            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
-            card_ID = self.action_context["opponent_property"]["card"]
-            table.add_row("Stealing:", f"{CARD_MAPPING[card_ID]}")
-            table.add_row("Played to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
-            table.add_row("Played to Set:", str(self.action_context["my_set"]["set_index"]))
-        elif action == 6:
-            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
-            card_ID = self.action_context["my_property"]["card"]
-            table.add_row("Swapping:", f"{CARD_MAPPING[card_ID]}")
-            card_ID = self.action_context["opponent_property"]["card"]
-            table.add_row("For:", f"{CARD_MAPPING[card_ID]}")
-            table.add_row("Played to Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
-            table.add_row("Played to Set:", str(self.action_context["my_set"]["set_index"]))
-        elif action in [7,8]:
-            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
-        elif action == 9:
-            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
-            table.add_row("Stealing Colour:", self.action_context["opponent_set"]["colour"])
-            table.add_row("Stealing Set:", self.action_context["opponent_set"]["set_index"])
-        elif action in [10,11,12,13,14]:
-            table.add_row("On Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
-            table.add_row("On Set:", str(self.action_context["my_set"]["set_index"]))
-        elif action == 15:
-            table.add_row("Opponent:", f"{self.agents[self.action_context["opponent_ID"]]}")
-            table.add_row("On Colour:", COLOUR_MAPPING[self.action_context["my_set"]["colour"]])
-            table.add_row("On Set:", str(self.action_context["my_set"]["set_index"]))
-        elif action in [16]:
-            pass
-        
-        console.print(table)
-
-    def get_card_style(self, card):
-        if isinstance(card, MoneyCard):
-            return "green"
-        elif isinstance(card, RentCard):
-            return "white"
-        elif isinstance(card, ActionCard):
-            return "red"
-        elif isinstance(card, PropertyCard):
-            return COLOUR_STYLE_MAP[card.colours[0]]
-        
-    def get_card_sort_key(self, card):
-        if isinstance(card, MoneyCard):
-            return 0
-        elif isinstance(card, RentCard):
-            return 1
-        elif isinstance(card, ActionCard):
-            return 2
-        elif isinstance(card, PropertyCard):
-            return 3
-
-    def close(self):
-        """
-        Close should release any graphical displays, subprocesses, network connections
-        or any other environment data which should not be kept around after the
-        user is no longer using the environment.
-        """
-        pass
+    def render(self, mode):
+        self.renderer.render(mode, self._get_internal_state())
+    
+    def _get_internal_state(self):
+        return self.players, self.agents, self.agent_selection, self.deck, self.action_context

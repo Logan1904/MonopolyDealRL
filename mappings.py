@@ -118,3 +118,6 @@ CARD_MAPPING = {
     38: "5M",
     39: "10M"
 }
+
+def decode_colour(id):
+    return COLOUR_MAPPING[id]
