@@ -284,9 +284,10 @@ class MonopolyDeal(AECEnv):
             elif action_ID == 9:
                 # deal breaker → choose (opponent) set colour
                 self.action_context["decision"] = 5
-                self.action_context["target"] = opponent_ID
+                self.action_context["target_ID"] = opponent_ID
                 # unmask (opponent) sets
                 action_mask.set_set_colour(self._get_internal_state(), target_opponent=True)
+                print(action_mask.action_mask)
 
         elif decision == 2:
             # property colour chosen → choose property set index
@@ -380,7 +381,7 @@ class MonopolyDeal(AECEnv):
         elif decision == 7:
             # end of turn, perform actions and change state
 
-            # render pre-moves state
+            # render pre action state
             if self.actions_left[agent] == 3:
                 self.render(mode='pre')
 
@@ -552,32 +553,73 @@ class MonopolyDeal(AECEnv):
                 
                 # add to discard pile
                 self.deck.discardCard(card)
-            # Action done
+
+            # action done
             self.actions_left[agent] -= 1
 
             # print action
             self.render(mode='action')
 
-            # If round done, next agent
-            if self.actions_left[agent] == 0:
-                # render pose-moves state
-                self.render(mode='post')
-                self.actions_left[agent] = 3
-
-                # for next player
-                self.agent_selection = self._agent_selector.next()
-                agent = self.agent_selection
-                player = self.players[agent]
-
-                # draw 2 cards for next player
-                player.drawTwo()
-
             # Reset action context
             self.action_context = self.reset_action_context()
+
             # Unmask valid actions
             action_mask = ActionMask()
             action_mask.set_action_ID(self._get_internal_state())
-            
+
+            # round done
+            if self.actions_left[agent] == 0:
+
+                # hand too big
+                if len(player.hand) > 7:
+                    # Discard
+                    self.action_context["decision"] = 8
+
+                    action_mask.initialise_action_mask()
+                    action_mask.set_hand_card_discard(self._get_internal_state())
+                else:
+                    self.action_context["decision"] = 9
+
+        elif decision == 8:
+            # discard card just chosen
+
+            # remove card from hand
+            hand_card = action["hand_card"]
+            self.action_context["hand_card"] = hand_card
+
+            self.render(mode='discard')
+
+            card = player.removeHandCardById(hand_card)
+
+            # add to discard pile
+            self.deck.discardCard(card)
+
+            if len(player.hand) > 7:
+                action_mask.initialise_action_mask()
+                action_mask.set_hand_card_discard(self._get_internal_state())
+            else:
+                self.action_context["decision"] = 9                
+
+        elif decision == 9:
+            # render post action state
+            self.render(mode='post')
+            self.actions_left[agent] = 3
+
+            # for next player
+            self.agent_selection = self._agent_selector.next()
+            agent = self.agent_selection
+            player = self.players[agent]
+
+            # draw 2 cards for next player
+            player.drawTwo()
+
+            # Reset action context
+            self.action_context = self.reset_action_context()
+
+            # Unmask valid actions
+            action_mask = ActionMask()
+            action_mask.set_action_ID(self._get_internal_state())
+
         # Update action mask
         self.observations[agent]["action_mask"] = action_mask.action_mask
         

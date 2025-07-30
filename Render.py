@@ -25,7 +25,9 @@ class Render():
             print("Discard Size: " + str(deck.discardSize()))
             print("")
             self.render_hand(player.hand)
+            print("")
             self.render_money(player.money)
+            print("")
             print("Properties: ")
             self.render_properties(player.sets)
             print("")
@@ -35,13 +37,17 @@ class Render():
             print("Discard Size: " + str(deck.discardSize()))
             print("")
             self.render_hand(player.hand)
+            print("")
             self.render_money(player.money)
+            print("")
             print("Properties: ")
             self.render_properties(player.sets)
             print("")
-            print("")
         elif mode == 'action':
             self.render_action(agents, action_context)
+            print("")
+        elif mode == 'discard':
+            self.render_discard(player, action_context)
 
     def render_properties(self, sets):
         console = Console()
@@ -62,6 +68,8 @@ class Render():
                     cell_text = Text()
                     for card in pSet.properties:
                         cell_text.append(f"{card.name}\n", style=COLOUR_STYLE_MAP[colour])  # newline for vertical stack
+                    if pSet.isCompleted():
+                        cell_text.append("✅")
                     row.append(cell_text)
                     
             table.add_row(*row)
@@ -191,3 +199,13 @@ class Render():
             return 2
         elif isinstance(card, PropertyCard):
             return 3
+        
+    def render_discard(self, player, action_context):
+        card_ID = action_context["hand_card"]
+        card = player.getHandCardById(card_ID)
+        style = self.get_card_style(card)
+        
+        line = Text(f"DISCARD: ")
+        line.append(f"[{card.name}]", style=style)
+
+        self.console.print(line)

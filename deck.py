@@ -15,13 +15,17 @@ class Deck:
             self.deck = self.discard_pile
             self.discard_pile = []
             self.shuffle()
-            
+        elif len(self.deck) == 0 and len(self.discard_pile) == 0:
+            # no more cards
+            return
         return self.deck.pop(0)
 
     def getCards(self, n):
         cards = []
         for i in range(n):
-            cards.append(self.draw())
+            card = self.draw()
+            if card:
+                cards.append(card)
 
         return cards
 

@@ -27,6 +27,7 @@ class ActionMask():
     def set_action_ID(self, internal_state):
         # set action mask based on cards in hand
 
+
         players, agents, agent_selection, deck, action_context = internal_state
         player = players[agent_selection]
 
@@ -370,3 +371,12 @@ class ActionMask():
                         for pind,pSet in enumerate(pSets):
                             if not pSet.isEmpty():
                                 self.action_mask["set"]["set_index"][pind] = 1
+
+    def set_hand_card_discard(self, internal_state):
+        # set hand card 
+
+        players, agents, agent_selection, deck, action_context = internal_state
+        player = players[agent_selection]
+
+        for card in player.hand:
+            self.action_mask["hand_card"][card.id] = 1
