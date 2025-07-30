@@ -13,6 +13,7 @@ from Deck import *
 from Player import *
 from Card import *
 from Render import *
+from ActionMask import *
 from mappings import *
 
 def env(render_mode=None):
@@ -45,22 +46,7 @@ class MonopolyDeal(AECEnv):
 
     def __init__(self, render_mode=None):
         
-        # IMPORTANT CONSTANTS
-        self.num_players = 2                        # Number of players including agent
-        self.num_opponents = self.num_players - 1
-
-        self.max_hand_size = 13                     # Maximum number of cards in hand (start with 7, play 3 Pass Go's)
-        self.max_sets_per_property = 9              # Maximum possible number of sets per property colour
-        self.max_any_card = 8                       # Maximum possible number of any card (8 x Pass Go)
-
-        self.num_unique_colours = 10                # Number of unique colours
-        self.num_unique_property_cards = 18         # Number of property cards
-        self.num_unique_cards = 40                  # Number of unique cards in deck
-
-        self.num_actions = 17                       # Number of actions
-        self.max_decisions = 7                      # Number of decisions (choose opponent, choose property, choose set, end-of-turn)
-
-        self.possible_agents = ["player_" + str(r) for r in range(self.num_players)]
+        self.possible_agents = ["player_" + str(r) for r in range(NUM_PLAYERS)]
 
         # a mapping between agent name and ID
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
@@ -75,46 +61,46 @@ class MonopolyDeal(AECEnv):
         """
         
         return gym.spaces.Dict({
-            "hand": gym.spaces.Box(low=0, high=self.max_any_card, shape=(self.num_unique_cards,), dtype=np.int8),
+            "hand": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,), dtype=np.int8),
             "property": gym.spaces.Dict({
                 colour: gym.spaces.Dict({
-                    "cards": gym.spaces.Box(low=-1, high=self.num_unique_property_cards, shape=(self.max_sets_per_property,max_cards), dtype=np.int8),
-                    "full_set": gym.spaces.MultiBinary(self.max_sets_per_property)
+                    "cards": gym.spaces.Box(low=-1, high=NUM_UNIQUE_PROPERTY_CARDS, shape=(MAX_SETS_PER_PROPERTY,max_cards), dtype=np.int8),
+                    "full_set": gym.spaces.MultiBinary(MAX_SETS_PER_PROPERTY)
                 }) for colour,max_cards in SET_LENGTH.items()
             }),
-            "money": gym.spaces.Box(low=0, high=self.max_any_card, shape=(self.num_unique_cards,), dtype=np.int8),
+            "money": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,), dtype=np.int8),
             "opponent_property": gym.spaces.Dict({
                 colour: gym.spaces.Dict({
-                    "cards": gym.spaces.Box(low=-1, high=self.num_unique_property_cards, shape=(self.max_sets_per_property,max_cards,self.num_opponents), dtype=np.int8),
-                    "full_set": gym.spaces.MultiBinary([self.max_sets_per_property,self.num_opponents])
+                    "cards": gym.spaces.Box(low=-1, high=NUM_UNIQUE_PROPERTY_CARDS, shape=(MAX_SETS_PER_PROPERTY,max_cards,NUM_OPPONENTS), dtype=np.int8),
+                    "full_set": gym.spaces.MultiBinary([MAX_SETS_PER_PROPERTY,NUM_OPPONENTS])
                 }) for colour,max_cards in SET_LENGTH.items()
             }),
-            "opponent_money": gym.spaces.Box(low=0, high=self.max_any_card, shape=(self.num_unique_cards,self.num_opponents), dtype=np.int8),
+            "opponent_money": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,NUM_OPPONENTS), dtype=np.int8),
             "actions_left": gym.spaces.Discrete(4),
-            "discard_pile": gym.spaces.Box(low=0, high=self.max_any_card, shape=(self.num_unique_cards,), dtype=np.int8),
+            "discard_pile": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,), dtype=np.int8),
             "action_context": gym.spaces.Dict({
-                "decision": gym.spaces.Discrete(self.max_decisions+2, start=-1),
-                "action": gym.spaces.Discrete(self.num_actions+1, start=-1),
-                "hand_card": gym.spaces.Discrete(self.num_unique_cards+1, start=-1),
-                "target_ID": gym.spaces.Discrete(self.num_players+1, start=-1),
-                "opponent_ID": gym.spaces.Discrete(self.num_opponents+1, start=-1),
+                "decision": gym.spaces.Discrete(MAX_DECISIONS+2, start=-1),
+                "action": gym.spaces.Discrete(NUM_ACTIONS+1, start=-1),
+                "hand_card": gym.spaces.Discrete(NUM_UNIQUE_CARDS+1, start=-1),
+                "target_ID": gym.spaces.Discrete(NUM_PLAYERS+1, start=-1),
+                "opponent_ID": gym.spaces.Discrete(NUM_OPPONENTS+1, start=-1),
                 "opponent_property": gym.spaces.Dict({
-                    "colour": gym.spaces.Discrete(self.num_unique_colours+1, start=-1),
-                    "set_index": gym.spaces.Discrete(self.max_sets_per_property+1, start=-1),
-                    "card": gym.spaces.Discrete(self.num_unique_property_cards+1, start=-1)
+                    "colour": gym.spaces.Discrete(NUM_UNIQUE_COLOURS+1, start=-1),
+                    "set_index": gym.spaces.Discrete(MAX_SETS_PER_PROPERTY+1, start=-1),
+                    "card": gym.spaces.Discrete(NUM_UNIQUE_PROPERTY_CARDS+1, start=-1)
                 }),
                 "opponent_set": gym.spaces.Dict({
-                    "colour": gym.spaces.Discrete(self.num_unique_colours+1, start=-1),
-                    "set_index": gym.spaces.Discrete(self.max_sets_per_property+1, start=-1)
+                    "colour": gym.spaces.Discrete(NUM_UNIQUE_COLOURS+1, start=-1),
+                    "set_index": gym.spaces.Discrete(MAX_SETS_PER_PROPERTY+1, start=-1)
                 }),
                 "my_property": gym.spaces.Dict({
-                    "colour": gym.spaces.Discrete(self.num_unique_colours+1, start=-1),
-                    "set_index": gym.spaces.Discrete(self.max_sets_per_property+1, start=-1),
-                    "card": gym.spaces.Discrete(self.num_unique_property_cards+1, start=-1)
+                    "colour": gym.spaces.Discrete(NUM_UNIQUE_COLOURS+1, start=-1),
+                    "set_index": gym.spaces.Discrete(MAX_SETS_PER_PROPERTY+1, start=-1),
+                    "card": gym.spaces.Discrete(NUM_UNIQUE_PROPERTY_CARDS+1, start=-1)
                 }),
                 "my_set": gym.spaces.Dict({
-                    "colour": gym.spaces.Discrete(self.num_unique_colours+1, start=-1),
-                    "set_index": gym.spaces.Discrete(self.max_sets_per_property+1, start=-1)
+                    "colour": gym.spaces.Discrete(NUM_UNIQUE_COLOURS+1, start=-1),
+                    "set_index": gym.spaces.Discrete(MAX_SETS_PER_PROPERTY+1, start=-1)
                 })
             })
         })
@@ -145,17 +131,17 @@ class MonopolyDeal(AECEnv):
 
         return gym.spaces.Dict(
             {   
-                "action_ID": gym.spaces.Discrete(self.num_actions),                         # Choose an action
-                "hand_card": gym.spaces.Discrete(self.num_unique_cards),                    # Choose a card from hand
-                "opponent_ID": gym.spaces.Discrete(self.num_opponents+1),                      # Choose an opponent
+                "action_ID": gym.spaces.Discrete(NUM_ACTIONS),                         # Choose an action
+                "hand_card": gym.spaces.Discrete(NUM_UNIQUE_CARDS),                    # Choose a card from hand
+                "opponent_ID": gym.spaces.Discrete(NUM_OPPONENTS+1),                      # Choose an opponent
                 "property_card": gym.spaces.Dict({                                          # Choose a card
-                    "colour": gym.spaces.Discrete(self.num_unique_colours),
-                    "set_index": gym.spaces.Discrete(self.max_sets_per_property),
-                    "card": gym.spaces.Discrete(self.num_unique_property_cards)
+                    "colour": gym.spaces.Discrete(NUM_UNIQUE_COLOURS),
+                    "set_index": gym.spaces.Discrete(MAX_SETS_PER_PROPERTY),
+                    "card": gym.spaces.Discrete(NUM_UNIQUE_PROPERTY_CARDS)
                 }),
                 "set": gym.spaces.Dict({                                              # Choose a set
-                    "colour": gym.spaces.Discrete(self.num_unique_colours),
-                    "set_index": gym.spaces.Discrete(self.max_sets_per_property)
+                    "colour": gym.spaces.Discrete(NUM_UNIQUE_COLOURS),
+                    "set_index": gym.spaces.Discrete(MAX_SETS_PER_PROPERTY)
                 })
             }
         )
@@ -205,15 +191,18 @@ class MonopolyDeal(AECEnv):
         self.observations = {
             agent: {
                 "observation": self.observe(agent),
-                "action_mask": self.initialise_action_mask()
+                "action_mask": ActionMask().action_mask
             } for agent in self.agents
         }
 
         # draw 2 cards for first agent
-        self.players[self.agent_selection].drawTwo()
+        player = self.players[self.agent_selection]
+        player.drawTwo()
 
         # set action mask for first agent
-        self.observations[self.agent_selection]["action_mask"] = self.set_action_mask_action_ID(self.players[self.agent_selection],self.observations[self.agent_selection]["action_mask"])
+        action_mask = ActionMask()
+        action_mask.set_action_ID(self._get_internal_state())
+        self.observations[self.agent_selection]["action_mask"] = action_mask.action_mask
         
         return self.observations, self.infos
 
@@ -236,7 +225,7 @@ class MonopolyDeal(AECEnv):
         decision = self.action_context["decision"]
         action_ID = self.action_context["action"]
 
-        action_mask = self.initialise_action_mask()
+        action_mask = ActionMask()
 
         if decision == -1:
             # action chosen
@@ -251,11 +240,11 @@ class MonopolyDeal(AECEnv):
                 self.action_context["decision"] = 2
                 self.action_context["target_ID"] = self.agents.index(agent)
                 # unmask (my) properties
-                self.set_action_mask_property_colour(player, action_mask)
+                action_mask.set_property_colour(self._get_internal_state(), target_opponent=False)
             else:                   
                 # the rest → unmask hand_card action
                 self.action_context["decision"] = 0
-                self.set_action_mask_hand_card(player, action_mask, action_ID)
+                action_mask.set_hand_card(self._get_internal_state())
 
         elif decision == 0:
             # hand card chosen
@@ -270,12 +259,12 @@ class MonopolyDeal(AECEnv):
                 self.action_context["decision"] = 5
                 self.action_context["target_ID"] = self.agents.index(agent)
                 # unmask (my) sets
-                self.set_action_mask_set_colour(player, action_mask)
+                action_mask.set_set_colour(self._get_internal_state(), target_opponent=False)
             elif action_ID == 5 or action_ID == 6 or action_ID == 7 or action_ID == 8 or action_ID == 9:
                 # sly deal or forced deal or debt collector or it's my birthday or deal breaker → choose opponent
                 self.action_context["decision"] = 1
                 # unmask opponents
-                self.set_action_mask_opponent(player, action_mask)
+                action_mask.set_opponent(self._get_internal_state())
             
         elif decision == 1:
             # opponent chosen
@@ -288,7 +277,7 @@ class MonopolyDeal(AECEnv):
                 self.action_context["decision"] = 2
                 self.action_context["target_ID"] = opponent_ID
                 # unmask (opponent) properties
-                self.set_action_mask_property_colour(self.players[opponent], action_mask)
+                action_mask.set_property_colour(self._get_internal_state(), target_opponent=True)
             elif action_ID == 7 or action_ID == 8 or action_ID == 15:
                 # debt collector, it's my birthday or wild rent → end of turn
                 self.action_context["decision"] = 7
@@ -297,83 +286,77 @@ class MonopolyDeal(AECEnv):
                 self.action_context["decision"] = 5
                 self.action_context["target"] = opponent_ID
                 # unmask (opponent) sets
-                self.set_action_mask_set_colour(self.players[opponent], action_mask)
+                action_mask.set_set_colour(self._get_internal_state(), target_opponent=True)
 
         elif decision == 2:
             # property colour chosen → choose property set index
             property_colour = action["property_card"]["colour"]
             if self.action_context["target_ID"] == self.action_context["opponent_ID"]:
                 self.action_context["opponent_property"]["colour"] = property_colour
-                target = self.players[self.agents[self.action_context["opponent_ID"]]]
+                target_opponent = True
             else:
                 self.action_context["my_property"]["colour"] = property_colour
-                target = player
+                target_opponent = False
 
             # next decision is always 3
             self.action_context["decision"] = 3
 
             # unmask my property set index
-            colour = decode_colour(property_colour)
-            self.set_action_mask_property_set_index(target, colour, action_mask)
+            action_mask.set_property_set_index(self._get_internal_state(), target_opponent)
 
         elif decision == 3:
             # property set index chosen → choose property card
             property_set_index = action["property_card"]["set_index"]
             if self.action_context["target_ID"] == self.action_context["opponent_ID"]:
                 self.action_context["opponent_property"]["set_index"] = property_set_index
-                property_colour = self.action_context["opponent_property"]["colour"]
-                target = self.players[self.agents[self.action_context["opponent_ID"]]]
+                target_opponent = True
             else:
                 self.action_context["my_property"]["set_index"] = property_set_index
-                property_colour = self.action_context["my_property"]["colour"]
-                target = player
+                target_opponent = False
 
             # next decision is always 4
             self.action_context["decision"] = 4
 
             # unmask my property set index
-            colour = decode_colour(property_colour)
-            self.set_action_mask_property_card(target, colour, property_set_index, action_mask)
+            action_mask.set_property_card(self._get_internal_state(), target_opponent)
 
         elif decision == 4:
             # property card chosen
             property_card = action["property_card"]["card"]
             if self.action_context["target_ID"] == self.action_context["opponent_ID"]:
                 self.action_context["opponent_property"]["card"] = property_card
-                target = self.players[self.agents[self.action_context["opponent_ID"]]]
             else:
                 self.action_context["my_property"]["card"] = property_card
-                target = player
             
             if action_ID == 1 or action_ID == 5 or (action_ID == 6 and self.action_context["my_property"]["colour"] != -1):
                 # move property, sly deal → choose (my) set colour
                 self.action_context["decision"] = 5
                 self.action_context["target_ID"] = self.agents.index(agent)
                 # unmask (my) sets
-                self.set_action_mask_set_colour(target, action_mask)
+                action_mask.set_set_colour(self._get_internal_state(), target_opponent=False)
             elif action_ID == 6 and self.action_context["my_property"]["colour"] == -1:
                 # forced deal → choose (my) property colour
                 self.action_context["decision"] = 2
                 self.action_context["target_ID"] = self.agents.index(agent)
                 # unmask (my) properties
-                self.set_action_mask_property_colour(target, action_mask)
+                action_mask.set_property_colour(self._get_internal_state(), target_opponent=False)
 
         elif decision == 5:
             # set colour chosen
             set_colour = action["set"]["colour"]
             if self.action_context["target_ID"] == self.action_context["opponent_ID"]:
                 self.action_context["opponent_set"]["colour"] = set_colour
-                target = self.players[self.agents[self.action_context["opponent_ID"]]]
+                target_opponent = True
             else:
                 self.action_context["my_set"]["colour"] = set_colour
-                target = player
+                target_opponent = False
 
             # next decision is always 6
             self.action_context["decision"] = 6
 
             # unmask set index
             colour = decode_colour(set_colour)
-            self.set_action_mask_set_index(target, colour, action_mask)
+            action_mask.set_set_index(self._get_internal_state(), target_opponent)
 
         elif decision == 6:
             # set index just chosen
@@ -392,7 +375,7 @@ class MonopolyDeal(AECEnv):
                 # wild rent → choose opponent
                 self.action_context["decision"] = 1
                 # unmask opponents
-                self.set_action_mask_opponent(target, action_mask)
+                action_mask.set_opponent(self._get_internal_state())
 
         elif decision == 7:
             # end of turn, perform actions and change state
@@ -592,11 +575,11 @@ class MonopolyDeal(AECEnv):
             # Reset action context
             self.action_context = self.reset_action_context()
             # Unmask valid actions
-            self.initialise_action_mask()
-            self.set_action_mask_action_ID(player, action_mask)
+            action_mask = ActionMask()
+            action_mask.set_action_ID(self._get_internal_state())
             
         # Update action mask
-        self.observations[agent]["action_mask"] = action_mask
+        self.observations[agent]["action_mask"] = action_mask.action_mask
         
     def observe(self,agent):
         """
@@ -606,7 +589,7 @@ class MonopolyDeal(AECEnv):
         player = self.players[agent]
 
         # Observe hand
-        hand = np.zeros((self.num_unique_cards), dtype=np.int8)
+        hand = np.zeros((NUM_UNIQUE_CARDS), dtype=np.int8)
         for card in player.hand:
             hand[card.id] += 1
 
@@ -614,8 +597,8 @@ class MonopolyDeal(AECEnv):
         property = {}
         for colour,size in SET_LENGTH.items():
             property[colour] = {}
-            cards = np.full((self.max_sets_per_property,size), -1, dtype=np.int8)
-            full_set = np.zeros((self.max_sets_per_property), dtype=np.int8)
+            cards = np.full((MAX_SETS_PER_PROPERTY,size), -1, dtype=np.int8)
+            full_set = np.zeros((MAX_SETS_PER_PROPERTY), dtype=np.int8)
 
             for pind,pSet in enumerate(player.sets[colour]):
                 for cind,card in enumerate(pSet.properties):
@@ -626,7 +609,7 @@ class MonopolyDeal(AECEnv):
             property[colour]["full_set"] = full_set
         
         # Observe money
-        money = np.zeros((self.num_unique_cards), dtype=np.int8)
+        money = np.zeros((NUM_UNIQUE_CARDS), dtype=np.int8)
         for card in player.money:
             money[card.id] += 1
 
@@ -635,8 +618,8 @@ class MonopolyDeal(AECEnv):
         opponents = [a for a in self.agents if a != agent]
         for colour,size in SET_LENGTH.items():
             opponent_property[colour] = {}
-            cards = np.full((self.num_opponents,self.max_sets_per_property,size), -1, dtype=np.int8)
-            full_set = np.zeros((self.num_opponents,self.max_sets_per_property), dtype=np.int8)
+            cards = np.full((NUM_OPPONENTS,MAX_SETS_PER_PROPERTY,size), -1, dtype=np.int8)
+            full_set = np.zeros((NUM_OPPONENTS,MAX_SETS_PER_PROPERTY), dtype=np.int8)
             
             for oind,opponent in enumerate(opponents):
                 for pind,pSet in enumerate(self.players[opponent].sets[colour]):
@@ -648,7 +631,7 @@ class MonopolyDeal(AECEnv):
             opponent_property[colour]["full_set"] = full_set
         
         # Observe opponent money
-        opponent_money = np.zeros((self.num_opponents,self.num_unique_cards), dtype=np.int8)
+        opponent_money = np.zeros((NUM_OPPONENTS,NUM_UNIQUE_CARDS), dtype=np.int8)
         for oind,opponent in enumerate(opponents):
             for card in self.players[opponent].money:
                 opponent_money[oind,card.id] += 1
@@ -657,7 +640,7 @@ class MonopolyDeal(AECEnv):
         actions_left = self.actions_left[agent]
 
         # Observe discard pile
-        discard_pile = np.zeros((self.num_unique_cards), dtype=np.int8)
+        discard_pile = np.zeros((NUM_UNIQUE_CARDS), dtype=np.int8)
         for card in self.deck.discard_pile:
             discard_pile[card.id] += 1
         
@@ -704,322 +687,7 @@ class MonopolyDeal(AECEnv):
         }
 
         return action_context
-
-    def initialise_action_mask(self):
-        action_mask = {
-            "action_ID": np.zeros(self.num_actions, dtype=np.int8),
-            "hand_card": np.zeros(self.num_unique_cards, dtype=np.int8),
-            "opponent_ID": np.zeros(self.num_opponents+1, dtype=np.int8),
-            "property_card": {
-                "colour": np.zeros(self.num_unique_colours, dtype=np.int8),
-                "set_index": np.zeros(self.max_sets_per_property, dtype=np.int8),
-                "card": np.zeros(self.num_unique_property_cards, dtype=np.int8)
-            },
-            "set": {
-                "colour": np.zeros(self.num_unique_colours, dtype=np.int8),
-                "set_index": np.zeros(self.max_sets_per_property, dtype=np.int8)
-            }
-        }
-
-        return action_mask
-
-    def set_action_mask_action_ID(self, player, action_mask):
-        # set action mask based on cards in hand
-
-        # can always skip
-        action_mask["action_ID"][0] = 1
-
-        # move property, at least 1 property on the board (can be wild)
-        action_mask["action_ID"][1] = player.hasAtLeastOnePropertyOnBoard()
-        
-        # play money
-        action_mask["action_ID"][2] = player.hasMoneyInHand()
-
-        # play property
-        action_mask["action_ID"][3] = player.hasPropertyInHand()
-
-        # play wild property, at least 1 property on the board (cannot be wild)
-        action_mask["action_ID"][4] = player.hasWildPropertyInHand() and player.hasAtLeastOneNonWildPropertyOnBoard()
-
-        # sly deal, at least one opponent must have at least 1 property on the board
-        if player.hasSlyDeal():
-            for opponent in self.players.values():
-                if opponent == player:
-                    continue
-                if opponent.hasAtLeastOnePropertyOnBoard():
-                    action_mask["action_ID"][5] = 1
-                    break
-        
-        # forced deal, at least one opponent AND player must have at least 1 property on the board
-        if player.hasForcedDeal():
-            for opponent in self.players.values():
-                if opponent == player:
-                    continue
-                if opponent.hasAtLeastOnePropertyOnBoard():
-                    action_mask["action_ID"][6] = 1
-                    break
-        
-        # debt collector, at least one opponent must have >0 money on the board
-        if player.hasDebtCollector():
-            for opponent in self.players.values():
-                if opponent == player:
-                    continue
-                if opponent.hasAtLeastOneMoneyOnBoard():
-                    action_mask["action_ID"][7] = 1
-                    break
-
-        # its my birthday, at least one opponent must have >0 money on the board
-        if player.hasItsMyBirthday():
-            for opponent in self.players.values():
-                if opponent == player:
-                    continue
-                if opponent.hasAtLeastOneMoneyOnBoard():
-                    action_mask["action_ID"][8] = 1
-                    break
-
-        # deal breaker, at least one opponent must have at least one set on the board
-        if player.hasDealBreaker():
-            for opponent in self.players.values():
-                if opponent == player:
-                    continue
-                if opponent.hasAtLeastOneSetOnBoard():
-                    action_mask["action_ID"][9] = 1
-                    break
-        
-        # rent, at least one property of that colour AND at least one opponent with >0 money
-        for opponent in self.players.values():
-            if opponent == player:
-                continue
-            if opponent.hasAtLeastOneMoneyOnBoard():
-                pColours = player.whichColoursOnBoard()
-                rColours = player.whichRentColoursInHand()
-
-                validColours = pColours.intersection(rColours)
-
-                if "Red" in validColours:
-                    action_mask["action_ID"][10] = 1
-                if "Green" in validColours:
-                    action_mask["action_ID"][11] = 1
-                if "Pink" in validColours:
-                    action_mask["action_ID"][12] = 1
-                if "Black" in validColours:
-                    action_mask["action_ID"][13] = 1
-                if "Brown" in validColours:
-                    action_mask["action_ID"][14] = 1
-                if "Wild" in rColours:
-                    action_mask["action_ID"][15] = 1
-        
-        # just say no, masked 
-        action_mask["action_ID"][16] = 0
-
-        return action_mask
-        
-    def set_action_mask_property_colour(self, player, action_mask):
-        # set action mask based on agents properties on the board
-
-        # get indices of properties held by player
-        for cind,pSets in enumerate(player.sets.values()):
-            for pind,pSet in enumerate(pSets):
-                if not pSet.isEmpty() and not pSet.isOnlyWild():
-                    action_mask["property_card"]["colour"][cind] = 1
-                    break
-
-    def set_action_mask_property_set_index(self, player, colour, action_mask):
-        # set action mask based on agents properties on the board
-        
-        # get indices of properties held by player
-        for pind,pSet in enumerate(player.sets[colour]):
-            if not pSet.isEmpty() and not pSet.isOnlyWild():
-                action_mask["property_card"]["set_index"][pind] = 1
-                break
-
-    def set_action_mask_property_card(self, player, colour, set_index, action_mask):
-        # set action mask based on agents properties on the board
-
-        # get indices of properties held by player
-        
-        for card in player.sets[colour][set_index].properties:
-            action_mask["property_card"]["card"][card.id] = 1
-        
-    def set_action_mask_hand_card(self, player, action_mask, action_ID):
-        # set action mask based on cards in hand and action_ID
-    
-        if action_ID == 2:      # money
-            for card in player.hand:
-                action_mask["hand_card"][card.id] = 1
-
-        elif action_ID == 3:    # property
-            for card in player.hand:
-                if isinstance(card,PropertyCard):
-                    action_mask["hand_card"][card.id] = 1
-
-        elif action_ID == 4:    # wild property
-            action_mask["hand_card"][17] = 1
-
-        elif action_ID == 5:    # sly deal
-            action_mask["hand_card"][23] = 1
-
-        elif action_ID == 6:    # forced deal
-            action_mask["hand_card"][21] = 1
-
-        elif action_ID == 7:    # debt collector
-            action_mask["hand_card"][22] = 1
-
-        elif action_ID == 8:    # its my birthday
-            action_mask["hand_card"][24] = 1
-
-        elif action_ID == 9:    # deal breaker
-            action_mask["hand_card"][26] = 1
-
-        elif action_ID == 10:    # rent, red/yellow
-            action_mask["hand_card"][28] = 1
-
-        elif action_ID == 11:    # rent, green/dark blue
-            action_mask["hand_card"][29] = 1
-
-        elif action_ID == 12:    # rent, pink/orange
-            action_mask["hand_card"][30] = 1
-
-        elif action_ID == 13:    # rent, black/light green
-            action_mask["hand_card"][31] = 1
-
-        elif action_ID == 14:    # rent, brown/light blue
-            action_mask["hand_card"][32] = 1
-
-        elif action_ID == 15:    # rent, wild
-            action_mask["hand_card"][33] = 1
-
-    def set_action_mask_opponent(self, agent, action_mask):
-        action_mask["opponent_ID"] = np.ones(self.num_opponents+1, dtype=np.int8)
-        action_mask["opponent_ID"][self.agents.index(str(agent))] = 0
-
-    def set_action_mask_set_colour(self, player, action_mask):
-        # set action mask on set colour
-
-        # playing a property into a set
-        if self.action_context["action"] < 9:
-            if self.action_context["action"] in [1]:
-                # move property
-                my_property = self.action_context["my_property"]
-
-                # decode colour
-                colour = decode_colour(my_property["colour"])
-
-                # get property
-                pCard = player.getPropertyById(colour,my_property["set_index"],my_property["card"])
-            elif self.action_context["action"] in [3,4]:
-                # play property or wild property
-                card_ID = self.action_context["hand_card"]
-                
-                # get property
-                pCard = player.getHandCardById(card_ID)
-            elif self.action_context["action"] in [5,6]:
-                # sly deal or forced deal
-                opponent = self.players[self.agents[self.action_context["opponent_ID"]]]
-                opponent_property = self.action_context["opponent_property"]
-
-                # decode colour
-                colour = decode_colour(opponent_property["colour"])
-
-                # get property
-                pCard = opponent.getPropertyById(colour,opponent_property["set_index"],opponent_property["card"])
-
-            for cind,(colour,pSets) in enumerate(player.sets.items()):
-                for pSet in pSets:
-                    if pSet.canAddProperty(pCard):
-                        action_mask["set"]["colour"][cind] = 1
-                        break
-        else:
-            if self.action_context["action"] == 9:
-                # deal breaker, unmask all full sets
-                for cind,(colour,pSets) in enumerate(player.sets.items()):
-                    for pSet in pSets:
-                        if pSet.isCompleted():
-                            action_mask["set"]["colour"][cind] = 1
-                            break
-            else:
-                # rent, unmask based on rent card
-                card_ID = self.action_context["hand_card"]
-                # get rent card
-                rCard = player.getHandCardById(card_ID)
-
-                if rCard.isWild():
-                    for cind,(colour,pSets) in enumerate(player.sets.items()):
-                        for pSet in pSets:
-                            if not pSet.isEmpty():
-                                action_mask["set"]["colour"][cind] = 1
-                                break
-                else:
-                    for cind,(colour,pSets) in enumerate(player.sets.items()):
-                        if colour not in rCard.colours:
-                            continue
-                        for pSet in pSets:
-                            if not pSet.isEmpty():
-                                action_mask["set"]["colour"][cind] = 1
-                                break
-
-    def set_action_mask_set_index(self, player, colour, action_mask):
-        # set action mask on set index
-
-        # playing a property into a set
-        if self.action_context["action"] < 9:
-            if self.action_context["action"] in [1]:
-                # move property
-                my_property = self.action_context["my_property"]
-
-                # decode colour
-                colour = decode_colour(my_property["colour"])
-
-                # get property
-                pCard = player.getPropertyById(colour,my_property["set_index"],my_property["card"])
-            elif self.action_context["action"] in [3,4]:
-                # play property or wild property
-                card_ID = self.action_context["hand_card"]
-                
-                # get property
-                pCard = player.getHandCardById(card_ID)
-            elif self.action_context["action"] in [5,6]:
-                # sly deal or forced deal
-                opponent = self.players[self.agents[self.action_context["opponent_ID"]]]
-                opponent_property = self.action_context["opponent_property"]
-
-                # decode colour
-                colour = decode_colour(opponent_property["colour"])
-
-                # get property
-                pCard = opponent.getPropertyById(colour,opponent_property["set_index"],opponent_property["card"])
-            
-            for cind,(colour,pSets) in enumerate(player.sets.items()):
-                for pind,pSet in enumerate(pSets):
-                    if pSet.canAddProperty(pCard):
-                        action_mask["set"]["set_index"][pind] = 1
-        else:
-            if self.action_context["action"] == 9:
-                # deal breaker, unmask all full sets
-                for cind,(colour,pSets) in enumerate(player.sets.items()):
-                    for pind,pSet in enumerate(pSets):
-                        if pSet.isCompleted():
-                            action_mask["set"]["set_index"][pind] = 1
-            else:
-                # rent, unmask based on rent card
-                card_ID = self.action_context["hand_card"]
-
-                # get rent card
-                rCard = player.getHandCardById(card_ID)
-
-                if rCard.isWild():
-                    for cind,(colour,pSets) in enumerate(player.sets.items()):
-                        for pind,pSet in enumerate(pSets):
-                            if not pSet.isEmpty():
-                                action_mask["set"]["set_index"][pind] = 1
-                else:
-                    for cind,(colour,pSets) in enumerate(player.sets.items()):
-                        if colour not in rCard.colours:
-                            continue
-                        for pind,pSet in enumerate(pSets):
-                            if not pSet.isEmpty():
-                                action_mask["set"]["set_index"][pind] = 1
-                    
+                        
     def render(self, mode):
         self.renderer.render(mode, self._get_internal_state())
     

@@ -1,3 +1,18 @@
+# IMPORTANT CONSTANTS
+NUM_PLAYERS = 2                        # Number of players including agent
+NUM_OPPONENTS = NUM_PLAYERS - 1
+
+MAX_HAND_SIZE = 13                     # Maximum number of cards in hand (start with 7, play 3 Pass Go's)
+MAX_SETS_PER_PROPERTY = 9              # Maximum possible number of sets per property colour
+MAX_ANY_CARD = 8                       # Maximum possible number of any card (8 x Pass Go)
+
+NUM_UNIQUE_COLOURS = 10                # Number of unique colours
+NUM_UNIQUE_PROPERTY_CARDS = 18         # Number of property cards
+NUM_UNIQUE_CARDS = 40                  # Number of unique cards in deck
+
+NUM_ACTIONS = 17                       # Number of actions
+MAX_DECISIONS = 7                      # Number of decisions
+
 # Number of cards required for a set
 SET_LENGTH = {
     "Blue": 2,

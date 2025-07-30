@@ -16,7 +16,6 @@ class Render():
         """
 
         players, agents, agent_selection, deck, action_context = internal_state
-
         player = players[agent_selection]
 
         if mode == 'pre':
