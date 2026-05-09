@@ -372,6 +372,25 @@ class ActionMask():
                             if not pSet.isEmpty():
                                 self.action_mask["set"]["set_index"][pind] = 1
 
+    def set_defender_phase(self, internal_state):
+        """Build the action mask for a defender phase (decision >= 10).
+
+        Caller has already yielded control to a defender via
+        MonopolyDeal._yield_to_defender(); env.pending describes the in-flight
+        action and env.action_context["decision"] is one of the
+        DECISION_DEFENDER_* codes.
+
+        TODO(1.2): branch on pending["type"] and the current decision code:
+          - DECISION_DEFENDER_JSN → unmask hand_card for JSN cards (id 27)
+          - DECISION_DEFENDER_PAY → unmask money/property cards on board
+          - DECISION_DEFENDER_PAY_DONE → unmask a "done" sentinel slot
+          - DECISION_DEFENDER_FORCED_DEAL_PLACE_* → set / set-index for the
+            incoming property
+        For 1.1 this is intentionally a no-op so the env compiles and the
+        attacker-only flow continues to work unchanged.
+        """
+        return
+
     def set_hand_card_discard(self, internal_state):
         # set hand card 
 
