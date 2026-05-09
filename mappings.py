@@ -11,7 +11,15 @@ NUM_UNIQUE_PROPERTY_CARDS = 18         # Number of property cards
 NUM_UNIQUE_CARDS = 40                  # Number of unique cards in deck
 
 NUM_ACTIONS = 17                       # Number of actions
-MAX_DECISIONS = 7                      # Number of decisions
+MAX_DECISIONS = 14                     # Highest decision code (attacker phases 0-9, defender phases 10-14)
+
+# Defender-phase decision codes. Active when env.pending is not None and
+# control has been yielded from the attacker to a defender for a follow-up choice.
+DECISION_DEFENDER_JSN = 10                       # play Just Say No or not
+DECISION_DEFENDER_PAY = 11                       # pick a card to hand over (rent / debt / birthday)
+DECISION_DEFENDER_PAY_DONE = 12                  # signal payment is complete (or forced when no cards left)
+DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR = 13  # set colour for incoming forced-deal property
+DECISION_DEFENDER_FORCED_DEAL_PLACE_INDEX = 14   # set index within that colour
 
 # Number of cards required for a set
 SET_LENGTH = {

@@ -186,6 +186,12 @@ class MonopolyDeal(AECEnv):
         self.actions_left = {agent: 3 for agent in self.agents}
         self.action_context = self.reset_action_context()
 
+        # Cross-player action in flight (e.g. rent, JSN, forced-deal placement).
+        # None during normal attacker turns. While set, agent_selection has been
+        # temporarily overridden to a defender; the attacker resumes once
+        # _advance_or_return_to_attacker() drains the defender list.
+        self.pending = None
+
         # initialise observation dictionary
         self.observations = {agent: {"observation": None, "action_mask": None} for agent in self.agents} 
         self.observations = {
@@ -554,31 +560,12 @@ class MonopolyDeal(AECEnv):
                 # add to discard pile
                 self.deck.discardCard(card)
 
-            # action done
-            self.actions_left[agent] -= 1
-
-            # print action
-            self.render(mode='action')
-
-            # Reset action context
-            self.action_context = self.reset_action_context()
-
-            # Unmask valid actions
-            action_mask = ActionMask()
-            action_mask.set_action_ID(self._get_internal_state())
-
-            # round done
-            if self.actions_left[agent] == 0:
-
-                # hand too big
-                if len(player.hand) > 7:
-                    # Discard
-                    self.action_context["decision"] = 8
-
-                    action_mask.initialise_action_mask()
-                    action_mask.set_hand_card_discard(self._get_internal_state())
-                else:
-                    self.action_context["decision"] = 9
+            # If the action triggered a defender phase (rent, JSN, forced-deal
+            # placement, etc.), control has been yielded to the defender via
+            # _yield_to_defender() and pending is set. Skip finalize; it will
+            # run once the defender drain completes.
+            if self.pending is None:
+                action_mask = self._finalize_attacker_action()
 
         elif decision == 8:
             # discard card just chosen
@@ -620,9 +607,93 @@ class MonopolyDeal(AECEnv):
             action_mask = ActionMask()
             action_mask.set_action_ID(self._get_internal_state())
 
-        # Update action mask
-        self.observations[agent]["action_mask"] = action_mask.action_mask
+        elif decision in (
+            DECISION_DEFENDER_JSN,
+            DECISION_DEFENDER_PAY,
+            DECISION_DEFENDER_PAY_DONE,
+            DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR,
+            DECISION_DEFENDER_FORCED_DEAL_PLACE_INDEX,
+        ):
+            # TODO(1.2): dispatch on self.pending["type"] and `decision` to apply
+            # the defender's choice to game state, then either advance to the
+            # next defender or hand control back to the attacker.
+            action_mask = self._advance_or_return_to_attacker()
+
+        # Update action mask for whoever holds the turn now (may differ from
+        # the agent we entered step() with if a defender phase was yielded to
+        # or a turn just advanced).
+        self.observations[self.agent_selection]["action_mask"] = action_mask.action_mask
         
+    def _finalize_attacker_action(self):
+        """Run the post-resolution cleanup for the attacker's just-completed action:
+        decrement actions_left, render, reset action_context, and arm the next
+        decision (skip → next-action, hand>7 → discard, else → end-of-turn).
+
+        Called both on the normal in-line path (decision 7 with no pending) and
+        when the last defender of a pending action finishes.
+        """
+        agent = self.agent_selection
+        player = self.players[agent]
+
+        self.actions_left[agent] -= 1
+
+        self.render(mode='action')
+
+        self.action_context = self.reset_action_context()
+
+        action_mask = ActionMask()
+        action_mask.set_action_ID(self._get_internal_state())
+
+        # Round done
+        if self.actions_left[agent] == 0:
+            if len(player.hand) > 7:
+                # Discard
+                self.action_context["decision"] = 8
+                action_mask.initialise_action_mask()
+                action_mask.set_hand_card_discard(self._get_internal_state())
+            else:
+                self.action_context["decision"] = 9
+
+        return action_mask
+
+    def _yield_to_defender(self, defender_agent, decision_code):
+        """Hand control to a defender for one or more follow-up decisions.
+
+        Caller must have set self.pending = {...} first. The agent_selector's
+        cyclic position is intentionally not advanced — _agent_selector.next()
+        is only called at decision==9 (post-turn), so as long as control
+        returns to the attacker before then, the cycle stays correct.
+        """
+        self.agent_selection = defender_agent
+        self.action_context = self.reset_action_context()
+        self.action_context["decision"] = decision_code
+
+        action_mask = ActionMask()
+        action_mask.set_defender_phase(self._get_internal_state())
+        return action_mask
+
+    def _advance_or_return_to_attacker(self):
+        """Called when a defender finishes their decision sequence.
+
+        If more defenders remain in self.pending["defenders"] (e.g. multi-target
+        It's My Birthday), yield to the next one. Otherwise clear pending,
+        restore the attacker as agent_selection, and run the deferred finalize.
+        """
+        if self.pending is None:
+            # Defensive: nothing to drain; treat as attacker finalize.
+            return self._finalize_attacker_action()
+
+        remaining = self.pending.get("defenders", [])
+        if remaining:
+            next_defender = remaining.pop(0)
+            first_decision = self.pending.get("defender_first_decision", DECISION_DEFENDER_JSN)
+            return self._yield_to_defender(next_defender, first_decision)
+
+        attacker = self.pending["attacker"]
+        self.pending = None
+        self.agent_selection = attacker
+        return self._finalize_attacker_action()
+
     def observe(self,agent):
         """
         Observe the internal state representation to the gymnasium observation space
