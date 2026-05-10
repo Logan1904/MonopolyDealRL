@@ -32,7 +32,7 @@ class PropertySet:
             self.removeProperty(property)
 
     def rentValue(self):
-        if self.colour == "Dark Blue":
+        if self.colour == "Blue":
             rent = 3 if len(self.properties) == 1 else 8
         elif self.colour == "Brown":
             rent = len(self.properties)
