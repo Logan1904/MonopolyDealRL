@@ -46,21 +46,27 @@ class ActionMask():
         # play wild property, at least 1 property on the board (cannot be wild)
         self.action_mask["action_ID"][4] = player.hasWildPropertyInHand() and player.hasAtLeastOneNonWildPropertyOnBoard()
 
-        # sly deal, at least one opponent must have at least 1 property on the board
+        # sly deal, at least one opponent must have a non-wild property on the
+        # board. The property-colour mask filters out wild-only sets, so an
+        # opponent whose only properties are wilds would otherwise produce an
+        # all-zero colour mask and the agent would default to (0,0,0) — a
+        # non-existent target.
         if player.hasSlyDeal():
             for opponent in players.values():
                 if opponent == player:
                     continue
-                if opponent.hasAtLeastOnePropertyOnBoard():
+                if opponent.hasAtLeastOneNonWildPropertyOnBoard():
                     self.action_mask["action_ID"][5] = 1
                     break
         
-        # forced deal, at least one opponent AND player must have at least 1 property on the board
-        if player.hasForcedDeal():
+        # forced deal, attacker must have a non-wild property to offer AND at
+        # least one opponent must have a non-wild property to take. Wild-only
+        # boards on either side make the trade illegal under our model.
+        if player.hasForcedDeal() and player.hasAtLeastOneNonWildPropertyOnBoard():
             for opponent in players.values():
                 if opponent == player:
                     continue
-                if opponent.hasAtLeastOnePropertyOnBoard():
+                if opponent.hasAtLeastOneNonWildPropertyOnBoard():
                     self.action_mask["action_ID"][6] = 1
                     break
         
@@ -255,7 +261,7 @@ class ActionMask():
             elif action_context["action"] in [3,4]:
                 # play property or wild property
                 card_ID = action_context["hand_card"]
-                
+
                 # get property
                 pCard = target.getHandCardById(card_ID)
             elif action_context["action"] in [5,6]:
@@ -372,24 +378,46 @@ class ActionMask():
                             if not pSet.isEmpty():
                                 self.action_mask["set"]["set_index"][pind] = 1
 
-    def set_defender_phase(self, internal_state):
+    def set_defender_phase(self, internal_state, pending):
         """Build the action mask for a defender phase (decision >= 10).
 
-        Caller has already yielded control to a defender via
-        MonopolyDeal._yield_to_defender(); env.pending describes the in-flight
-        action and env.action_context["decision"] is one of the
-        DECISION_DEFENDER_* codes.
-
-        TODO(1.2): branch on pending["type"] and the current decision code:
-          - DECISION_DEFENDER_JSN → unmask hand_card for JSN cards (id 27)
-          - DECISION_DEFENDER_PAY → unmask money/property cards on board
-          - DECISION_DEFENDER_PAY_DONE → unmask a "done" sentinel slot
-          - DECISION_DEFENDER_FORCED_DEAL_PLACE_* → set / set-index for the
-            incoming property
-        For 1.1 this is intentionally a no-op so the env compiles and the
-        attacker-only flow continues to work unchanged.
+        Caller has yielded control to a defender via
+        MonopolyDeal._yield_to_defender(); `pending` describes the in-flight
+        action and action_context["decision"] is the current
+        DECISION_DEFENDER_* code.
         """
-        return
+        players, agents, agent_selection, deck, action_context = internal_state
+        defender = players[agent_selection]
+        decision = action_context["decision"]
+
+        if decision == DECISION_DEFENDER_PAY:
+            # Defender picks a card from their bank to hand over. Currently
+            # money-only — paying with property cards is not yet supported.
+            # TODO: extend to allow property-card payments.
+            for card in defender.money:
+                self.action_mask["hand_card"][card.id] = 1
+
+        elif decision == DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR:
+            # Unmask any colour bucket that has at least one slot accepting
+            # the incoming card.
+            pCard = pending["card"]
+            for cind, (colour, pSets) in enumerate(defender.sets.items()):
+                for pSet in pSets:
+                    if pSet.canAddProperty(pCard):
+                        self.action_mask["set"]["colour"][cind] = 1
+                        break
+
+        elif decision == DECISION_DEFENDER_FORCED_DEAL_PLACE_INDEX:
+            # Within the chosen colour, unmask each slot that accepts the card.
+            pCard = pending["card"]
+            colour = decode_colour(action_context["my_set"]["colour"])
+            for pind, pSet in enumerate(defender.sets[colour]):
+                if pSet.canAddProperty(pCard):
+                    self.action_mask["set"]["set_index"][pind] = 1
+
+        elif decision == DECISION_DEFENDER_JSN or decision == DECISION_DEFENDER_PAY_DONE:
+            # TODO(JSN MR): unmask JSN card / accept sentinel.
+            pass
 
     def set_hand_card_discard(self, internal_state):
         # set hand card 

@@ -156,8 +156,8 @@ class Render():
             table.add_row("Opponent:", f"{agents[action_context["opponent_ID"]]}")
         elif action == 9:
             table.add_row("Opponent:", f"{agents[action_context["opponent_ID"]]}")
-            table.add_row("Stealing Colour:", action_context["opponent_set"]["colour"])
-            table.add_row("Stealing Set:", action_context["opponent_set"]["set_index"])
+            table.add_row("Stealing Colour:", COLOUR_MAPPING[action_context["opponent_set"]["colour"]])
+            table.add_row("Stealing Set:", str(action_context["opponent_set"]["set_index"]))
         elif action in [10,11,12,13,14]:
             table.add_row("On Colour:", COLOUR_MAPPING[action_context["my_set"]["colour"]])
             table.add_row("On Set:", str(action_context["my_set"]["set_index"]))

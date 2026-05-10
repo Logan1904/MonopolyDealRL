@@ -66,8 +66,13 @@ class Player:
                 return copy.deepcopy(pCard)
 
     def removeSetByID(self, colour, set_index):
+        # Detach the populated PropertySet from this player and replace its
+        # slot with a fresh empty PropertySet. Returning the original (still
+        # populated) lets the new owner take it as-is without aliasing —
+        # critical, otherwise the new owner's slot and our slot would point
+        # at the same object and any later mutation would leak across.
         pSet = self.sets[colour][set_index]
-        self.sets[colour][set_index].clearSet()
+        self.sets[colour][set_index] = PropertySet(colour, pSet.maxSize)
         return pSet
 
     def addMoney(self, card):

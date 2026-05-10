@@ -293,7 +293,6 @@ class MonopolyDeal(AECEnv):
                 self.action_context["target_ID"] = opponent_ID
                 # unmask (opponent) sets
                 action_mask.set_set_colour(self._get_internal_state(), target_opponent=True)
-                print(action_mask.action_mask)
 
         elif decision == 2:
             # property colour chosen → choose property set index
@@ -391,6 +390,12 @@ class MonopolyDeal(AECEnv):
             if self.actions_left[agent] == 3:
                 self.render(mode='pre')
 
+            # Render the action description NOW, before resolving. The resolve
+            # for offensive actions may yield control to a defender (which
+            # wipes action_context), and finalize is what would otherwise own
+            # this render.
+            self.render(mode='action')
+
             if action_ID == 0:
                 # skip
                 pass
@@ -455,52 +460,50 @@ class MonopolyDeal(AECEnv):
                 # add to discard pile
                 self.deck.discardCard(card)
             elif action_ID == 6:
-                # forced deal
-                opponent = self.players[self.agents[self.action_context["opponent_ID"]]]
+                # forced deal: swap one of attacker's properties for one of
+                # the defender's. Both sides change hands; defender picks
+                # where to place the incoming card via a follow-up decision.
+                opponent_name = self.agents[self.action_context["opponent_ID"]]
+                opponent = self.players[opponent_name]
                 opponent_property = self.action_context["opponent_property"]
                 my_property = self.action_context["my_property"]
                 my_set = self.action_context["my_set"]
 
-                # decode colours
                 p_colour_opp = decode_colour(opponent_property["colour"])
                 s_colour_mine = decode_colour(my_set["colour"])
+                p_colour_mine = decode_colour(my_property["colour"])
 
-                # steal property
-                pCard = opponent.removePropertyById(p_colour_opp,opponent_property["set_index"],opponent_property["card"])
+                # steal opponent's property → attacker's set
+                stolen = opponent.removePropertyById(p_colour_opp, opponent_property["set_index"], opponent_property["card"])
+                player.addProperty(s_colour_mine, my_set["set_index"], stolen)
 
-                # add property to new set
-                player.addProperty(s_colour_mine,my_set["set_index"],pCard)
-                
-                # TODO: opponent needs to choose set to add his new property to
-                # will be part of logic for rebuttals (JSN)
-                # will need to pass p_colour_mine as argument
+                # remove attacker's offered property → queue for defender to place
+                given = player.removePropertyById(p_colour_mine, my_property["set_index"], my_property["card"])
 
-                # remove card from hand
+                # discard the action card
                 hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
+                self.deck.discardCard(player.removeHandCardById(hand_card))
 
-                # add to discard pile
-                self.deck.discardCard(card)
+                # yield to defender for placement
+                action_mask = self._start_forced_deal_placement(agent, opponent_name, given)
             elif action_ID == 7:
-                # debt collector
-                # TODO: opponent needs to choose cards worth $5M
+                # debt collector: chosen opponent owes $5M.
+                opponent_name = self.agents[self.action_context["opponent_ID"]]
 
-                # remove card from hand
+                # discard the action card
                 hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
+                self.deck.discardCard(player.removeHandCardById(hand_card))
 
-                # add to discard pile
-                self.deck.discardCard(card)
+                action_mask = self._start_payment(agent, [opponent_name], amount=5)
             elif action_ID == 8:
-                # it's my birthday
-                # TODO: each opponent gives $2M
+                # it's my birthday: every opponent owes $2M.
+                opponents = [a for a in self.agents if a != agent]
 
-                # remove card from hand
+                # discard the action card
                 hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
-                
-                # add to discard pile
-                self.deck.discardCard(card)
+                self.deck.discardCard(player.removeHandCardById(hand_card))
+
+                action_mask = self._start_payment(agent, opponents, amount=2)
             elif action_ID == 9:
                 # deal breaker
                 opponent = self.players[self.agents[self.action_context["opponent_ID"]]]
@@ -509,13 +512,13 @@ class MonopolyDeal(AECEnv):
                 # decode colours
                 s_colour = decode_colour(opponent_set["colour"])
 
-                # steal set
-                pSet_taken = opponent.removeSet(s_colour,opponent_set["set_index"])
-
-                # add to my sets
-                for pSet in player.sets[s_colour]:
+                # steal set: opponent's slot is replaced with a fresh empty
+                # PropertySet, and the populated original is transferred into
+                # the attacker's first empty slot.
+                pSet_taken = opponent.removeSetByID(s_colour, opponent_set["set_index"])
+                for pind, pSet in enumerate(player.sets[s_colour]):
                     if pSet.isEmpty():
-                        pSet = pSet_taken
+                        player.sets[s_colour][pind] = pSet_taken
                         break
 
                 # remove card from hand
@@ -525,29 +528,30 @@ class MonopolyDeal(AECEnv):
                 # add to discard pile
                 self.deck.discardCard(card)
             elif action_ID > 9 and action_ID < 15:
-                # rent
+                # coloured rent: every opponent owes the rent value of the
+                # chosen set (computed from set completion + houses/hotels).
                 my_set = self.action_context["my_set"]
-                # TODO: each opponent gives money based on rent
+                s_colour = decode_colour(my_set["colour"])
+                rent_amount = player.sets[s_colour][my_set["set_index"]].rentValue()
+                opponents = [a for a in self.agents if a != agent]
 
-                # remove card from hand
+                # discard the rent card
                 hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
+                self.deck.discardCard(player.removeHandCardById(hand_card))
 
-                # add to discard pile
-                self.deck.discardCard(card)
+                action_mask = self._start_payment(agent, opponents, amount=rent_amount)
             elif action_ID == 15:
-                # wild rent
+                # wild rent: only the chosen opponent pays.
                 my_set = self.action_context["my_set"]
-                opponent = self.players[self.agents[self.action_context["opponent_ID"]]]
+                s_colour = decode_colour(my_set["colour"])
+                rent_amount = player.sets[s_colour][my_set["set_index"]].rentValue()
+                opponent_name = self.agents[self.action_context["opponent_ID"]]
 
-                # TODO: opponent gives money based on rent
-
-                # remove card from hand
+                # discard the rent card
                 hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
+                self.deck.discardCard(player.removeHandCardById(hand_card))
 
-                # add to discard pile
-                self.deck.discardCard(card)
+                action_mask = self._start_payment(agent, [opponent_name], amount=rent_amount)
             elif action_ID == 16:
                 # just say no
 
@@ -607,16 +611,51 @@ class MonopolyDeal(AECEnv):
             action_mask = ActionMask()
             action_mask.set_action_ID(self._get_internal_state())
 
-        elif decision in (
-            DECISION_DEFENDER_JSN,
-            DECISION_DEFENDER_PAY,
-            DECISION_DEFENDER_PAY_DONE,
-            DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR,
-            DECISION_DEFENDER_FORCED_DEAL_PLACE_INDEX,
-        ):
-            # TODO(1.2): dispatch on self.pending["type"] and `decision` to apply
-            # the defender's choice to game state, then either advance to the
-            # next defender or hand control back to the attacker.
+        elif decision == DECISION_DEFENDER_PAY:
+            # Defender chose a money card to hand over. Transfer it, decrement
+            # what they still owe, and either continue paying, advance to the
+            # next defender, or return control to the attacker.
+            card_id = action["hand_card"]
+            defender = player  # agent_selection has been overridden to defender
+            attacker_player = self.players[self.pending["attacker"]]
+
+            paid_card = None
+            for c in defender.money:
+                if c.id == card_id:
+                    paid_card = c
+                    break
+
+            defender.removeMoney(paid_card)
+            attacker_player.addMoney(paid_card)
+
+            self.pending["remaining"] -= paid_card.value
+
+            if self.pending["remaining"] <= 0 or not defender.money:
+                action_mask = self._advance_or_return_to_attacker()
+            else:
+                # Keep paying — refresh the defender's mask.
+                action_mask = ActionMask()
+                action_mask.set_defender_phase(self._get_internal_state(), self.pending)
+
+        elif decision == DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR:
+            # Defender picked the colour bucket for the incoming property.
+            set_colour = action["set"]["colour"]
+            self.action_context["my_set"]["colour"] = set_colour
+            self.action_context["decision"] = DECISION_DEFENDER_FORCED_DEAL_PLACE_INDEX
+            action_mask = ActionMask()
+            action_mask.set_defender_phase(self._get_internal_state(), self.pending)
+
+        elif decision == DECISION_DEFENDER_FORCED_DEAL_PLACE_INDEX:
+            # Defender picked the set_index. Place the card and hand control
+            # back to the attacker.
+            set_index = action["set"]["set_index"]
+            colour = decode_colour(self.action_context["my_set"]["colour"])
+            defender = player
+            defender.addProperty(colour, set_index, self.pending["card"])
+            action_mask = self._advance_or_return_to_attacker()
+
+        elif decision in (DECISION_DEFENDER_JSN, DECISION_DEFENDER_PAY_DONE):
+            # TODO(JSN MR): defender chooses to play Just Say No or accept the action.
             action_mask = self._advance_or_return_to_attacker()
 
         # Update action mask for whoever holds the turn now (may differ from
@@ -626,18 +665,18 @@ class MonopolyDeal(AECEnv):
         
     def _finalize_attacker_action(self):
         """Run the post-resolution cleanup for the attacker's just-completed action:
-        decrement actions_left, render, reset action_context, and arm the next
+        decrement actions_left, reset action_context, and arm the next
         decision (skip → next-action, hand>7 → discard, else → end-of-turn).
 
         Called both on the normal in-line path (decision 7 with no pending) and
-        when the last defender of a pending action finishes.
+        when the last defender of a pending action finishes. The action-mode
+        render fires earlier (in step()) before any defender yield, since
+        action_context["action"] is reset by _yield_to_defender.
         """
         agent = self.agent_selection
         player = self.players[agent]
 
         self.actions_left[agent] -= 1
-
-        self.render(mode='action')
 
         self.action_context = self.reset_action_context()
 
@@ -669,7 +708,7 @@ class MonopolyDeal(AECEnv):
         self.action_context["decision"] = decision_code
 
         action_mask = ActionMask()
-        action_mask.set_defender_phase(self._get_internal_state())
+        action_mask.set_defender_phase(self._get_internal_state(), self.pending)
         return action_mask
 
     def _advance_or_return_to_attacker(self):
@@ -678,14 +717,27 @@ class MonopolyDeal(AECEnv):
         If more defenders remain in self.pending["defenders"] (e.g. multi-target
         It's My Birthday), yield to the next one. Otherwise clear pending,
         restore the attacker as agent_selection, and run the deferred finalize.
+
+        For PAYMENT-shaped pending actions, also re-arms the per-defender
+        amount-owed counter on each yield, and silently skips defenders who
+        have nothing to pay with (Monopoly Deal rule: "give what you have").
         """
         if self.pending is None:
             # Defensive: nothing to drain; treat as attacker finalize.
             return self._finalize_attacker_action()
 
         remaining = self.pending.get("defenders", [])
-        if remaining:
+        while remaining:
             next_defender = remaining.pop(0)
+
+            if self.pending["type"] == "PAYMENT":
+                # Re-arm amount owed for this defender. If they have no money
+                # to give, skip them entirely.
+                # TODO: extend to allow paying with property cards, not just bank money.
+                self.pending["remaining"] = self.pending["amount"]
+                if not self.players[next_defender].money:
+                    continue
+
             first_decision = self.pending.get("defender_first_decision", DECISION_DEFENDER_JSN)
             return self._yield_to_defender(next_defender, first_decision)
 
@@ -693,6 +745,38 @@ class MonopolyDeal(AECEnv):
         self.pending = None
         self.agent_selection = attacker
         return self._finalize_attacker_action()
+
+    def _start_payment(self, attacker, defenders, amount):
+        """Initiate a payment-shaped pending action (rent, debt collector,
+        birthday). Each defender owes `amount` to the attacker, or all their
+        bank money if less. Yields control to the first solvent defender.
+
+        If no defender has anything to give, control returns to the attacker
+        immediately.
+        """
+        self.pending = {
+            "type": "PAYMENT",
+            "attacker": attacker,
+            "defenders": list(defenders),
+            "amount": amount,
+            "remaining": 0,  # set per-defender by _advance_or_return_to_attacker
+            "defender_first_decision": DECISION_DEFENDER_PAY,
+        }
+        return self._advance_or_return_to_attacker()
+
+    def _start_forced_deal_placement(self, attacker, defender, card):
+        """After a Forced Deal swap, the defender must place the property they
+        received from the attacker into one of their own sets. Two decisions:
+        colour, then set_index.
+        """
+        self.pending = {
+            "type": "FORCED_DEAL_PLACEMENT",
+            "attacker": attacker,
+            "defenders": [defender],
+            "card": card,
+            "defender_first_decision": DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR,
+        }
+        return self._advance_or_return_to_attacker()
 
     def observe(self,agent):
         """
