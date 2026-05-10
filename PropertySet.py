@@ -16,11 +16,12 @@ class PropertySet:
             self.properties.append(property)
 
     def canAddProperty(self, property):
-        not_wild_if_empty = not (len(self.properties) == 0 and "Wild" in property.colours)
+        # Wilds may be placed into empty sets — caveat in rentValue: a set
+        # whose contents are entirely wild has no rent value.
         correct_colour = self.colour in property.colours or "Wild" in property.colours
         is_not_full = not (self.isCompleted())
 
-        return not_wild_if_empty and correct_colour and is_not_full
+        return correct_colour and is_not_full
 
     def removeProperty(self, property):
         for p in self.properties:
@@ -32,6 +33,12 @@ class PropertySet:
             self.removeProperty(property)
 
     def rentValue(self):
+        # Caveat: wild-only sets (empty or all pure-wild contents) earn no rent.
+        # A pure wild placed alone in a coloured bucket doesn't commit to that
+        # colour for rent purposes.
+        if self.isEmpty() or self.isOnlyWild():
+            return 0
+
         if self.colour == "Blue":
             rent = 3 if len(self.properties) == 1 else 8
         elif self.colour == "Brown":
