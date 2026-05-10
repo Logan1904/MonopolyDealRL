@@ -43,30 +43,29 @@ class ActionMask():
         # play property
         self.action_mask["action_ID"][3] = player.hasPropertyInHand()
 
-        # play wild property, at least 1 property on the board (cannot be wild)
-        self.action_mask["action_ID"][4] = player.hasWildPropertyInHand() and player.hasAtLeastOneNonWildPropertyOnBoard()
+        # play wild property — wilds may now be placed in empty sets, so the
+        # only requirement is having one in hand.
+        self.action_mask["action_ID"][4] = player.hasWildPropertyInHand()
 
-        # sly deal, at least one opponent must have a non-wild property on the
-        # board. The property-colour mask filters out wild-only sets, so an
-        # opponent whose only properties are wilds would otherwise produce an
-        # all-zero colour mask and the agent would default to (0,0,0) — a
-        # non-existent target.
+        # sly deal, at least one opponent must have any property on the board.
+        # Wilds are stealable; the source-side property mask permits wild-only
+        # buckets and the destination check uses canAddProperty (which also
+        # accepts wilds into empty sets).
         if player.hasSlyDeal():
             for opponent in players.values():
                 if opponent == player:
                     continue
-                if opponent.hasAtLeastOneNonWildPropertyOnBoard():
+                if opponent.hasAtLeastOnePropertyOnBoard():
                     self.action_mask["action_ID"][5] = 1
                     break
-        
-        # forced deal, attacker must have a non-wild property to offer AND at
-        # least one opponent must have a non-wild property to take. Wild-only
-        # boards on either side make the trade illegal under our model.
-        if player.hasForcedDeal() and player.hasAtLeastOneNonWildPropertyOnBoard():
+
+        # forced deal, both sides must have at least one property — wilds on
+        # either side are tradable.
+        if player.hasForcedDeal() and player.hasAtLeastOnePropertyOnBoard():
             for opponent in players.values():
                 if opponent == player:
                     continue
-                if opponent.hasAtLeastOneNonWildPropertyOnBoard():
+                if opponent.hasAtLeastOnePropertyOnBoard():
                     self.action_mask["action_ID"][6] = 1
                     break
         
@@ -186,15 +185,16 @@ class ActionMask():
 
         players, agents, agent_selection, deck, action_context = internal_state
         if target_opponent:
-            opponent = agents[action_context["opponent_ID"]]  
+            opponent = agents[action_context["opponent_ID"]]
             target = players[opponent]
         else:
             target = players[agent_selection]
 
-        # get indices of properties held by player
+        # Any non-empty colour bucket is a valid source — wild-only buckets
+        # included (Move Property / Sly Deal / Forced Deal can pick wilds).
         for cind,pSets in enumerate(target.sets.values()):
             for pSet in pSets:
-                if not pSet.isEmpty() and not pSet.isOnlyWild():
+                if not pSet.isEmpty():
                     self.action_mask["property_card"]["colour"][cind] = 1
                     break
 
@@ -212,9 +212,9 @@ class ActionMask():
         
         colour = decode_colour(colour_ID)
         
-        # get indices of properties held by player
+        # Any non-empty slot of the chosen colour is a valid source.
         for pind,pSet in enumerate(target.sets[colour]):
-            if not pSet.isEmpty() and not pSet.isOnlyWild():
+            if not pSet.isEmpty():
                 self.action_mask["property_card"]["set_index"][pind] = 1
                 break
 
