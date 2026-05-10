@@ -29,7 +29,9 @@ class PropertySet:
                 return self.properties.remove(p)
 
     def clearSet(self):
-        for property in self.properties:
+        # Iterate over a copy — removeProperty mutates self.properties and
+        # iterating the live list while modifying it would skip elements.
+        for property in list(self.properties):
             self.removeProperty(property)
 
     def rentValue(self):
