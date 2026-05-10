@@ -231,6 +231,13 @@ class MonopolyDeal(AECEnv):
 
         # extract useful values
         agent = self.agent_selection
+
+        # If the current agent is already done (game ended on a prior step),
+        # PettingZoo expects step(None) to just drain them from the rotation.
+        if self.terminations.get(agent, False) or self.truncations.get(agent, False):
+            self._was_dead_step(action)
+            return
+
         player = self.players[agent]
         decision = self.action_context["decision"]
         action_ID = self.action_context["action"]
@@ -578,6 +585,27 @@ class MonopolyDeal(AECEnv):
         # or a turn just advanced).
         self.observations[self.agent_selection]["action_mask"] = action_mask.action_mask
         
+    def _check_win(self):
+        """Win condition: own at least 3 complete property sets (any colour).
+        Active player is checked first so a tied state favours whoever just
+        moved. On win, populate terminations and rewards (+1 winner, -1
+        loser) and return True.
+        """
+        active = self.agent_selection
+        order = [active] + [a for a in self.agents if a != active]
+        for agent_name in order:
+            player = self.players[agent_name]
+            completed = sum(
+                1 for sets in player.sets.values() for s in sets if s.isCompleted()
+            )
+            if completed >= 3:
+                for a in self.agents:
+                    self.terminations[a] = True
+                    self.rewards[a] = 1.0 if a == agent_name else -1.0
+                    self._cumulative_rewards[a] = self.rewards[a]
+                return True
+        return False
+
     def _finalize_attacker_action(self):
         """Run the post-resolution cleanup for the attacker's just-completed action:
         decrement actions_left, reset action_context, and arm the next
@@ -592,6 +620,14 @@ class MonopolyDeal(AECEnv):
         player = self.players[agent]
 
         self.actions_left[agent] -= 1
+
+        # All board mutations for this action have completed by now (including
+        # any defender phase like forced-deal placement). Check for a winner
+        # before arming the next turn.
+        if self._check_win():
+            # Game over. The mask we return is irrelevant — the next step()
+            # will see termination and drain via _was_dead_step.
+            return ActionMask()
 
         self.action_context = self.reset_action_context()
 
