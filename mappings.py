@@ -16,6 +16,7 @@ MAX_DECISIONS = 14                     # Highest decision code (attacker phases 
 # Defender-phase decision codes. Active when env.pending is not None and
 # control has been yielded from the attacker to a defender for a follow-up choice.
 DECISION_DEFENDER_JSN = 10                       # play Just Say No or not
+JSN_CARD_ID = 27                                 # card id of Just Say No (CARD_MAPPING[27])
 DECISION_DEFENDER_PAY = 11                       # pick a card to hand over (rent / debt / birthday)
 DECISION_DEFENDER_PAY_DONE = 12                  # signal payment is complete (or forced when no cards left)
 DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR = 13  # set colour for incoming forced-deal property

@@ -16,7 +16,7 @@ env.reset(seed=SEED)
 for agent in env.possible_agents:
     env.action_space(agent).seed(SEED)
 
-MAX_STEPS = 20000
+MAX_STEPS = 2000
 steps = 0
 for agent in env.agent_iter():
     observation, reward, termination, truncation, info = env.last()

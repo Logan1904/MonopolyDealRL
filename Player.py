@@ -164,6 +164,12 @@ class Player:
                 return True
         return False
 
+    def hasJustSayNo(self):
+        for card in self.hand:
+            if card.name == "Just Say No":
+                return True
+        return False
+
     def whichRentColoursInHand(self):
         colours = set()
         for card in self.hand:

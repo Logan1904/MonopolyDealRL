@@ -1,3 +1,4 @@
+import copy
 import functools
 
 import gymnasium as gym
@@ -15,6 +16,9 @@ from Card import *
 from Render import *
 from ActionMask import *
 from mappings import *
+
+# Action IDs that may be cancelled by the defender via Just Say No.
+AGGRESSIVE_ACTIONS = frozenset({5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
 
 def env(render_mode=None):
     """
@@ -435,134 +439,22 @@ class MonopolyDeal(AECEnv):
                 
                 # add property to new set
                 player.addProperty(s_colour,my_set["set_index"],pCard)
-            elif action_ID == 5:
-                # sly deal
-                opponent = self.players[self.agents[self.action_context["opponent_ID"]]]
-                opponent_property = self.action_context["opponent_property"]
-
-                my_set = self.action_context["my_set"]
-                my_property = self.action_context["my_property"]
-
-                # decode colours
-                p_colour = decode_colour(opponent_property["colour"])
-                s_colour = decode_colour(my_set["colour"])
-
-                # steal property
-                pCard = opponent.removePropertyById(p_colour,opponent_property["set_index"],opponent_property["card"])
-
-                # add property to new set
-                player.addProperty(s_colour,my_set["set_index"],pCard)
-
-                # remove card from hand
-                hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
-
-                # add to discard pile
-                self.deck.discardCard(card)
-            elif action_ID == 6:
-                # forced deal: swap one of attacker's properties for one of
-                # the defender's. Both sides change hands; defender picks
-                # where to place the incoming card via a follow-up decision.
-                opponent_name = self.agents[self.action_context["opponent_ID"]]
-                opponent = self.players[opponent_name]
-                opponent_property = self.action_context["opponent_property"]
-                my_property = self.action_context["my_property"]
-                my_set = self.action_context["my_set"]
-
-                p_colour_opp = decode_colour(opponent_property["colour"])
-                s_colour_mine = decode_colour(my_set["colour"])
-                p_colour_mine = decode_colour(my_property["colour"])
-
-                # steal opponent's property → attacker's set
-                stolen = opponent.removePropertyById(p_colour_opp, opponent_property["set_index"], opponent_property["card"])
-                player.addProperty(s_colour_mine, my_set["set_index"], stolen)
-
-                # remove attacker's offered property → queue for defender to place
-                given = player.removePropertyById(p_colour_mine, my_property["set_index"], my_property["card"])
-
-                # discard the action card
+            elif action_ID in AGGRESSIVE_ACTIONS:
+                # Aggressive actions (sly/forced deal, debt, birthday, deal
+                # breaker, rent, wild rent) all share the same shape: discard
+                # the action card up front (consumed regardless of JSN
+                # outcome), then either yield to the defender for a JSN check
+                # or apply the effect directly.
                 hand_card = self.action_context["hand_card"]
                 self.deck.discardCard(player.removeHandCardById(hand_card))
 
-                # yield to defender for placement
-                action_mask = self._start_forced_deal_placement(agent, opponent_name, given)
-            elif action_ID == 7:
-                # debt collector: chosen opponent owes $5M.
-                opponent_name = self.agents[self.action_context["opponent_ID"]]
-
-                # discard the action card
-                hand_card = self.action_context["hand_card"]
-                self.deck.discardCard(player.removeHandCardById(hand_card))
-
-                action_mask = self._start_payment(agent, [opponent_name], amount=5)
-            elif action_ID == 8:
-                # it's my birthday: every opponent owes $2M.
-                opponents = [a for a in self.agents if a != agent]
-
-                # discard the action card
-                hand_card = self.action_context["hand_card"]
-                self.deck.discardCard(player.removeHandCardById(hand_card))
-
-                action_mask = self._start_payment(agent, opponents, amount=2)
-            elif action_ID == 9:
-                # deal breaker
-                opponent = self.players[self.agents[self.action_context["opponent_ID"]]]
-                opponent_set = self.action_context["opponent_set"]
-
-                # decode colours
-                s_colour = decode_colour(opponent_set["colour"])
-
-                # steal set: opponent's slot is replaced with a fresh empty
-                # PropertySet, and the populated original is transferred into
-                # the attacker's first empty slot.
-                pSet_taken = opponent.removeSetByID(s_colour, opponent_set["set_index"])
-                for pind, pSet in enumerate(player.sets[s_colour]):
-                    if pSet.isEmpty():
-                        player.sets[s_colour][pind] = pSet_taken
-                        break
-
-                # remove card from hand
-                hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
-
-                # add to discard pile
-                self.deck.discardCard(card)
-            elif action_ID > 9 and action_ID < 15:
-                # coloured rent: every opponent owes the rent value of the
-                # chosen set (computed from set completion + houses/hotels).
-                my_set = self.action_context["my_set"]
-                s_colour = decode_colour(my_set["colour"])
-                rent_amount = player.sets[s_colour][my_set["set_index"]].rentValue()
-                opponents = [a for a in self.agents if a != agent]
-
-                # discard the rent card
-                hand_card = self.action_context["hand_card"]
-                self.deck.discardCard(player.removeHandCardById(hand_card))
-
-                action_mask = self._start_payment(agent, opponents, amount=rent_amount)
-            elif action_ID == 15:
-                # wild rent: only the chosen opponent pays.
-                my_set = self.action_context["my_set"]
-                s_colour = decode_colour(my_set["colour"])
-                rent_amount = player.sets[s_colour][my_set["set_index"]].rentValue()
-                opponent_name = self.agents[self.action_context["opponent_ID"]]
-
-                # discard the rent card
-                hand_card = self.action_context["hand_card"]
-                self.deck.discardCard(player.removeHandCardById(hand_card))
-
-                action_mask = self._start_payment(agent, [opponent_name], amount=rent_amount)
-            elif action_ID == 16:
-                # just say no
-
-                # TODO: implement rebuttal stuff  
-
-                # remove card from hand
-                hand_card = self.action_context["hand_card"]
-                card = player.removeHandCardById(hand_card)
-                
-                # add to discard pile
-                self.deck.discardCard(card)
+                defender = self._jsn_defender_for(action_ID)
+                if defender is not None and self.players[defender].hasJustSayNo():
+                    action_mask = self._start_jsn_check(agent, defender, action_ID)
+                else:
+                    result = self._apply_aggressive_effect(action_ID)
+                    if result is not None:
+                        action_mask = result
 
             # If the action triggered a defender phase (rent, JSN, forced-deal
             # placement, etc.), control has been yielded to the defender via
@@ -654,8 +546,31 @@ class MonopolyDeal(AECEnv):
             defender.addProperty(colour, set_index, self.pending["card"])
             action_mask = self._advance_or_return_to_attacker()
 
-        elif decision in (DECISION_DEFENDER_JSN, DECISION_DEFENDER_PAY_DONE):
-            # TODO(JSN MR): defender chooses to play Just Say No or accept the action.
+        elif decision == DECISION_DEFENDER_JSN:
+            # Current chooser (defender on the first iteration, then alternates
+            # with the attacker) picks: action_ID == 16 → play Just Say No,
+            # anything else (mask only allows 0 = "skip" otherwise) → decline.
+            chooser = self.agent_selection
+            chooser_player = self.players[chooser]
+            chose_jsn = (action["action_ID"] == 16)
+
+            if chose_jsn:
+                self.deck.discardCard(chooser_player.removeHandCardById(JSN_CARD_ID))
+                self.pending["jsn_count"] += 1
+                if chooser == self.pending["attacker"]:
+                    next_chooser = self.pending["defender"]
+                else:
+                    next_chooser = self.pending["attacker"]
+                if self.players[next_chooser].hasJustSayNo():
+                    action_mask = self._yield_to_defender(next_chooser, DECISION_DEFENDER_JSN)
+                else:
+                    # Other side has nothing to counter with — chain ends.
+                    action_mask = self._end_jsn_chain()
+            else:
+                action_mask = self._end_jsn_chain()
+
+        elif decision == DECISION_DEFENDER_PAY_DONE:
+            # Reserved for future "I'm done paying" sentinel; not used yet.
             action_mask = self._advance_or_return_to_attacker()
 
         # Update action mask for whoever holds the turn now (may differ from
@@ -763,6 +678,142 @@ class MonopolyDeal(AECEnv):
             "defender_first_decision": DECISION_DEFENDER_PAY,
         }
         return self._advance_or_return_to_attacker()
+
+    def _jsn_defender_for(self, action_ID):
+        """Return the agent name who gets the JSN-or-not decision against this
+        aggressive action. Two-player only for now: a single defender either
+        the explicit target (sly/forced/debt/dealbreaker/wild-rent) or the
+        sole opponent (birthday / coloured rent). Multi-defender JSN (e.g.
+        each opponent of Birthday in a 3+ player game getting their own
+        opportunity) is an extension point.
+        """
+        if action_ID in (5, 6, 7, 9, 15):
+            return self.agents[self.action_context["opponent_ID"]]
+        if action_ID in (8, 10, 11, 12, 13, 14):
+            for a in self.agents:
+                if a != self.agent_selection:
+                    return a
+        return None
+
+    def _apply_aggressive_effect(self, action_ID):
+        """Apply the actual game-state effect of an aggressive action. The
+        action card has already been discarded; this only does the steal /
+        swap / payment kickoff. Returns the action_mask of any defender phase
+        the effect yielded into (PAYMENT / FORCED_DEAL_PLACEMENT) or None if
+        the effect resolved synchronously.
+        """
+        attacker = self.agent_selection
+        player = self.players[attacker]
+
+        if action_ID == 5:
+            # sly deal
+            opp_name = self.agents[self.action_context["opponent_ID"]]
+            opponent = self.players[opp_name]
+            opp_prop = self.action_context["opponent_property"]
+            my_set = self.action_context["my_set"]
+            p_colour = decode_colour(opp_prop["colour"])
+            s_colour = decode_colour(my_set["colour"])
+            pCard = opponent.removePropertyById(p_colour, opp_prop["set_index"], opp_prop["card"])
+            player.addProperty(s_colour, my_set["set_index"], pCard)
+            return None
+
+        if action_ID == 6:
+            # forced deal — swap then yield to defender for placement
+            opp_name = self.agents[self.action_context["opponent_ID"]]
+            opponent = self.players[opp_name]
+            opp_prop = self.action_context["opponent_property"]
+            my_prop = self.action_context["my_property"]
+            my_set = self.action_context["my_set"]
+            p_colour_opp = decode_colour(opp_prop["colour"])
+            p_colour_mine = decode_colour(my_prop["colour"])
+            s_colour_mine = decode_colour(my_set["colour"])
+            stolen = opponent.removePropertyById(p_colour_opp, opp_prop["set_index"], opp_prop["card"])
+            player.addProperty(s_colour_mine, my_set["set_index"], stolen)
+            given = player.removePropertyById(p_colour_mine, my_prop["set_index"], my_prop["card"])
+            return self._start_forced_deal_placement(attacker, opp_name, given)
+
+        if action_ID == 7:
+            # debt collector
+            opp_name = self.agents[self.action_context["opponent_ID"]]
+            return self._start_payment(attacker, [opp_name], amount=5)
+
+        if action_ID == 8:
+            # it's my birthday
+            opponents = [a for a in self.agents if a != attacker]
+            return self._start_payment(attacker, opponents, amount=2)
+
+        if action_ID == 9:
+            # deal breaker
+            opp_name = self.agents[self.action_context["opponent_ID"]]
+            opponent = self.players[opp_name]
+            opp_set = self.action_context["opponent_set"]
+            s_colour = decode_colour(opp_set["colour"])
+            pSet_taken = opponent.removeSetByID(s_colour, opp_set["set_index"])
+            for pind, pSet in enumerate(player.sets[s_colour]):
+                if pSet.isEmpty():
+                    player.sets[s_colour][pind] = pSet_taken
+                    break
+            return None
+
+        if 10 <= action_ID <= 14:
+            # coloured rent — every opponent pays
+            my_set = self.action_context["my_set"]
+            s_colour = decode_colour(my_set["colour"])
+            rent_amount = player.sets[s_colour][my_set["set_index"]].rentValue()
+            opponents = [a for a in self.agents if a != attacker]
+            return self._start_payment(attacker, opponents, amount=rent_amount)
+
+        if action_ID == 15:
+            # wild rent — single chosen opponent pays
+            my_set = self.action_context["my_set"]
+            s_colour = decode_colour(my_set["colour"])
+            rent_amount = player.sets[s_colour][my_set["set_index"]].rentValue()
+            opp_name = self.agents[self.action_context["opponent_ID"]]
+            return self._start_payment(attacker, [opp_name], amount=rent_amount)
+
+        return None
+
+    def _start_jsn_check(self, attacker, defender, action_ID):
+        """Snapshot action_context and yield to the defender to decide whether
+        to play Just Say No. The attacker's action card has already been
+        discarded; if the chain ends with the action proceeding we replay the
+        effect from the snapshot, otherwise we just finalize.
+        """
+        self.pending = {
+            "type": "JSN_OPPORTUNITY",
+            "attacker": attacker,
+            "defender": defender,
+            "jsn_count": 0,
+            "saved_context": copy.deepcopy(self.action_context),
+            "original_action_ID": action_ID,
+        }
+        return self._yield_to_defender(defender, DECISION_DEFENDER_JSN)
+
+    def _end_jsn_chain(self):
+        """Called when the JSN chain ends (either side declines, or the next
+        player has no JSN to play). Restores attacker context and either
+        applies the effect (even count → action proceeds) or finalizes
+        without effect (odd count → cancelled). The action card was already
+        discarded up-front so cancellation just consumes it.
+        """
+        saved = self.pending["saved_context"]
+        action_ID = self.pending["original_action_ID"]
+        attacker = self.pending["attacker"]
+        cancelled = (self.pending["jsn_count"] % 2 == 1)
+
+        # Restore attacker turn state.
+        self.agent_selection = attacker
+        self.action_context = saved
+        self.pending = None
+
+        if cancelled:
+            return self._finalize_attacker_action()
+
+        result = self._apply_aggressive_effect(action_ID)
+        if result is not None:
+            # Effect yielded into PAYMENT / FORCED_DEAL_PLACEMENT pending.
+            return result
+        return self._finalize_attacker_action()
 
     def _start_forced_deal_placement(self, attacker, defender, card):
         """After a Forced Deal swap, the defender must place the property they

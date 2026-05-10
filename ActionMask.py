@@ -415,8 +415,18 @@ class ActionMask():
                 if pSet.canAddProperty(pCard):
                     self.action_mask["set"]["set_index"][pind] = 1
 
-        elif decision == DECISION_DEFENDER_JSN or decision == DECISION_DEFENDER_PAY_DONE:
-            # TODO(JSN MR): unmask JSN card / accept sentinel.
+        elif decision == DECISION_DEFENDER_JSN:
+            # Encode the choice via action_ID:
+            #   - action_ID == 0 (skip)  → decline
+            #   - action_ID == 16 (JSN)  → play
+            # Decline is always available; play only if the chooser has a JSN
+            # card in hand.
+            self.action_mask["action_ID"][0] = 1
+            if defender.hasJustSayNo():
+                self.action_mask["action_ID"][16] = 1
+
+        elif decision == DECISION_DEFENDER_PAY_DONE:
+            # Reserved for future "I'm done paying" sentinel; not used yet.
             pass
 
     def set_hand_card_discard(self, internal_state):
