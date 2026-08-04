@@ -1,4 +1,4 @@
-"""Bounded smoke test — same as test.py but caps the number of steps so we can
+"""Bounded smoke test - same as test.py but caps the number of steps so we can
 detect regressions without waiting for an episode to end (win detection isn't
 implemented yet, so episodes don't terminate naturally). Also seeds gym's RNG
 for reproducibility."""

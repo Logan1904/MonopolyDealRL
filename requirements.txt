@@ -1,0 +1,5 @@
+# Environment only - RL training deps (sb3-contrib etc.) to be added later.
+gymnasium>=1.0
+numpy>=2.0
+pettingzoo>=1.24
+rich>=13.0
