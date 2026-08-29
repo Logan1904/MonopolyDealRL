@@ -216,7 +216,6 @@ class ActionMask():
         for pind,pSet in enumerate(target.sets[colour]):
             if not pSet.isEmpty():
                 self.action_mask["property_card"]["set_index"][pind] = 1
-                break
 
     def set_property_card(self, internal_state, target_opponent):
         # set action mask based on agents properties on the board
