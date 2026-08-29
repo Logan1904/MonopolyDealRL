@@ -34,6 +34,14 @@ def env(render_mode=None):
     env = wrappers.OrderEnforcingWrapper(env)
     return env
 
+def _as_int64(context):
+    """Recursively cast a nested int dict to np.int64 leaves
+
+    gym.spaces.Discrete leaves are int64, so anything narrower (or a bare
+    Python int) makes the observation fail api_test's dtype check.
+    """
+    return {k: _as_int64(v) if isinstance(v, dict) else np.int64(v) for k, v in context.items()}
+
 class MonopolyDeal(AECEnv):
     """
     The metadata holds environment constants. From gymnasium, we inherit the "render_modes",
@@ -849,7 +857,7 @@ class MonopolyDeal(AECEnv):
                 opponent_money[oind,card.id] += 1
         
         # Observe actions left
-        actions_left = self.actions_left[agent]
+        actions_left = np.int64(self.actions_left[agent])
 
         # Observe discard pile
         discard_pile = np.zeros((NUM_UNIQUE_CARDS), dtype=np.int8)
@@ -857,7 +865,7 @@ class MonopolyDeal(AECEnv):
             discard_pile[card.id] += 1
         
         # Observe action context
-        action_context = self.action_context
+        action_context = _as_int64(self.action_context)
 
         self.observations[agent]["observation"] = {
             "hand": hand,
