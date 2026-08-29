@@ -84,7 +84,7 @@ class MonopolyDeal(AECEnv):
                 "action": gym.spaces.Discrete(NUM_ACTIONS+1, start=-1),
                 "hand_card": gym.spaces.Discrete(NUM_UNIQUE_CARDS+1, start=-1),
                 "target_ID": gym.spaces.Discrete(NUM_PLAYERS+1, start=-1),
-                "opponent_ID": gym.spaces.Discrete(NUM_OPPONENTS+1, start=-1),
+                "opponent_ID": gym.spaces.Discrete(NUM_PLAYERS+1, start=-1),
                 "opponent_property": gym.spaces.Dict({
                     "colour": gym.spaces.Discrete(NUM_UNIQUE_COLOURS+1, start=-1),
                     "set_index": gym.spaces.Discrete(MAX_SETS_PER_PROPERTY+1, start=-1),
