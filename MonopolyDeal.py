@@ -61,7 +61,7 @@ class MonopolyDeal(AECEnv):
         Define observation space
         """
         
-        return gym.spaces.Dict({
+        observation = gym.spaces.Dict({
             "hand": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,), dtype=np.int8),
             "property": gym.spaces.Dict({
                 colour: gym.spaces.Dict({
@@ -105,6 +105,23 @@ class MonopolyDeal(AECEnv):
                 })
             })
         })
+
+        action_mask = gym.spaces.Dict({
+            "action_ID": gym.spaces.MultiBinary(NUM_ACTIONS),
+            "hand_card": gym.spaces.MultiBinary(NUM_UNIQUE_CARDS),
+            "opponent_ID": gym.spaces.MultiBinary(NUM_OPPONENTS+1),
+            "property_card": gym.spaces.Dict({
+                "colour": gym.spaces.MultiBinary(NUM_UNIQUE_COLOURS),
+                "set_index": gym.spaces.MultiBinary(MAX_SETS_PER_PROPERTY),
+                "card": gym.spaces.MultiBinary(NUM_UNIQUE_PROPERTY_CARDS)
+            }),
+            "set": gym.spaces.Dict({
+                "colour": gym.spaces.MultiBinary(NUM_UNIQUE_COLOURS),
+                "set_index": gym.spaces.MultiBinary(MAX_SETS_PER_PROPERTY)
+            })
+        })
+
+        return gym.spaces.Dict({"observation": observation, "action_mask": action_mask})
 
     # Action space should be defined here.
     @functools.lru_cache(maxsize=None)
@@ -194,13 +211,12 @@ class MonopolyDeal(AECEnv):
         self.pending = None
 
         # initialise observation dictionary
-        self.observations = {agent: {"observation": None, "action_mask": None} for agent in self.agents} 
         self.observations = {
-            agent: {
-                "observation": self.observe(agent),
-                "action_mask": ActionMask().action_mask
-            } for agent in self.agents
+            agent: {"observation": None, "action_mask": ActionMask().action_mask}
+            for agent in self.agents
         }
+        for agent in self.agents:
+            self.observe(agent)
 
         # draw 2 cards for first agent
         player = self.players[self.agent_selection]
@@ -211,8 +227,6 @@ class MonopolyDeal(AECEnv):
         action_mask.set_action_ID(self._get_internal_state())
         self.observations[self.agent_selection]["action_mask"] = action_mask.action_mask
         
-        return self.observations, self.infos
-
     def step(self, action):
         """
         step(action) takes in an action for the current agent (specified by
