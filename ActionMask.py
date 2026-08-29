@@ -310,73 +310,57 @@ class ActionMask():
                                 break
 
     def set_set_index(self, internal_state, target_opponent):
-        # set action mask on set index
+        # set action mask on set index, within the already-chosen set colour
 
         players, agents, agent_selection, deck, action_context = internal_state
         if target_opponent:
-            opponent = agents[action_context["opponent_ID"]] 
-            target = players[opponent]
+            target = players[agents[action_context["opponent_ID"]]]
+            set_colour = decode_colour(action_context["opponent_set"]["colour"])
         else:
             target = players[agent_selection]
+            set_colour = decode_colour(action_context["my_set"]["colour"])
 
-        # playing a property into a set
-        if action_context["action"] < 9:
-            if action_context["action"] in [1]:
+        # The colour was fixed at the previous decision, so only slots in that
+        # bucket are legal. Scanning every colour lets an index that is valid
+        # elsewhere leak through, and the placement then silently drops a card.
+        pSets = target.sets[set_colour]
+        action = action_context["action"]
+
+        if action < 9:
+            # placing a property: source differs per action, destination check
+            # is the same canAddProperty test in all three cases
+            if action == 1:
                 # move property
                 my_property = action_context["my_property"]
-
-                # decode colour
-                colour = decode_colour(my_property["colour"])
-
-                # get property
-                pCard = target.getPropertyById(colour,my_property["set_index"],my_property["card"])
-            elif action_context["action"] in [3,4]:
+                source_colour = decode_colour(my_property["colour"])
+                pCard = target.getPropertyById(source_colour,my_property["set_index"],my_property["card"])
+            elif action in [3,4]:
                 # play property or wild property
-                card_ID = action_context["hand_card"]
-                
-                # get property
-                pCard = target.getHandCardById(card_ID)
-            elif action_context["action"] in [5,6]:
+                pCard = target.getHandCardById(action_context["hand_card"])
+            elif action in [5,6]:
                 # sly deal or forced deal
                 opponent = players[agents[action_context["opponent_ID"]]]
                 opponent_property = action_context["opponent_property"]
+                source_colour = decode_colour(opponent_property["colour"])
+                pCard = opponent.getPropertyById(source_colour,opponent_property["set_index"],opponent_property["card"])
 
-                # decode colour
-                colour = decode_colour(opponent_property["colour"])
+            for pind,pSet in enumerate(pSets):
+                if pSet.canAddProperty(pCard):
+                    self.action_mask["set"]["set_index"][pind] = 1
 
-                # get property
-                pCard = opponent.getPropertyById(colour,opponent_property["set_index"],opponent_property["card"])
+        elif action == 9:
+            # deal breaker, only completed sets can be taken
+            for pind,pSet in enumerate(pSets):
+                if pSet.isCompleted():
+                    self.action_mask["set"]["set_index"][pind] = 1
 
-            for cind,(colour,pSets) in enumerate(target.sets.items()):
-                for pind,pSet in enumerate(pSets):
-                    if pSet.canAddProperty(pCard):
-                        self.action_mask["set"]["set_index"][pind] = 1
         else:
-            if action_context["action"] == 9:
-                # deal breaker, unmask all full sets
-                for cind,(colour,pSets) in enumerate(target.sets.items()):
-                    for pind,pSet in enumerate(pSets):
-                        if pSet.isCompleted():
-                            self.action_mask["set"]["set_index"][pind] = 1
-            else:
-                # rent, unmask based on rent card
-                card_ID = action_context["hand_card"]
-
-                # get rent card
-                rCard = target.getHandCardById(card_ID)
-
-                if rCard.isWild():
-                    for cind,(colour,pSets) in enumerate(target.sets.items()):
-                        for pind,pSet in enumerate(pSets):
-                            if not pSet.isEmpty():
-                                self.action_mask["set"]["set_index"][pind] = 1
-                else:
-                    for cind,(colour,pSets) in enumerate(target.sets.items()):
-                        if colour not in rCard.colours:
-                            continue
-                        for pind,pSet in enumerate(pSets):
-                            if not pSet.isEmpty():
-                                self.action_mask["set"]["set_index"][pind] = 1
+            # rent: chargeable only on a non-empty set the rent card covers
+            rCard = target.getHandCardById(action_context["hand_card"])
+            if rCard.isWild() or set_colour in rCard.colours:
+                for pind,pSet in enumerate(pSets):
+                    if not pSet.isEmpty():
+                        self.action_mask["set"]["set_index"][pind] = 1
 
     def set_defender_phase(self, internal_state, pending):
         """Build the action mask for a defender phase (decision >= 10).
