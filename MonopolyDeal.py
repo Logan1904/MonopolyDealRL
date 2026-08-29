@@ -195,13 +195,18 @@ class MonopolyDeal(AECEnv):
         self.agent_selection = self._agent_selector.next()
 
         # initialise rewards, cumulative rewards
-        self.rewards = {agent: 0 for agent in self.agents}
-        self.cumulative_rewards = {agent: 0 for agent in self.agents}
+        self.rewards = {agent: 0.0 for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
 
         # intialise termination
         self.terminations = {agent: False for agent in self.agents}
+
+        # Set by _was_dead_step while it drains terminated agents.
+        self._skip_agent_selection = None
+
+        # Turns completed by anyone; drives the truncation cap.
+        self.turn_count = 0
 
         # initialise dummy infos
         self.infos = {agent: {} for agent in self.agents}
