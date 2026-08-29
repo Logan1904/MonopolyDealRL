@@ -17,9 +17,8 @@ class Player:
         self.hand += cards
 
         self.sets = {
-            colour: [PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize),
-                     PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize),
-                     PropertySet(colour,maxSize),PropertySet(colour,maxSize),PropertySet(colour,maxSize)] for colour,maxSize in SET_LENGTH.items()
+            colour: [PropertySet(colour,maxSize) for _ in range(MAX_SETS_PER_PROPERTY)]
+            for colour,maxSize in SET_LENGTH.items()
         }
 
     def __repr__(self):
