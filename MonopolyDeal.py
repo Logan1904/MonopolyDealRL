@@ -71,11 +71,11 @@ class MonopolyDeal(AECEnv):
             "money": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,), dtype=np.int8),
             "opponent_property": gym.spaces.Dict({
                 colour: gym.spaces.Dict({
-                    "cards": gym.spaces.Box(low=-1, high=NUM_UNIQUE_PROPERTY_CARDS, shape=(MAX_SETS_PER_PROPERTY,max_cards,NUM_OPPONENTS), dtype=np.int8),
-                    "full_set": gym.spaces.MultiBinary([MAX_SETS_PER_PROPERTY,NUM_OPPONENTS])
+                    "cards": gym.spaces.Box(low=-1, high=NUM_UNIQUE_PROPERTY_CARDS, shape=(NUM_OPPONENTS,MAX_SETS_PER_PROPERTY,max_cards), dtype=np.int8),
+                    "full_set": gym.spaces.MultiBinary([NUM_OPPONENTS,MAX_SETS_PER_PROPERTY])
                 }) for colour,max_cards in SET_LENGTH.items()
             }),
-            "opponent_money": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,NUM_OPPONENTS), dtype=np.int8),
+            "opponent_money": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_OPPONENTS,NUM_UNIQUE_CARDS), dtype=np.int8),
             "actions_left": gym.spaces.Discrete(4),
             "discard_pile": gym.spaces.Box(low=0, high=MAX_ANY_CARD, shape=(NUM_UNIQUE_CARDS,), dtype=np.int8),
             "action_context": gym.spaces.Dict({
