@@ -3,7 +3,7 @@ NUM_PLAYERS = 2                        # Number of players including agent
 NUM_OPPONENTS = NUM_PLAYERS - 1
 
 MAX_HAND_SIZE = 13                     # Maximum number of cards in hand (start with 7, play 3 Pass Go's)
-MAX_SETS_PER_PROPERTY = 5              # Maximum possible number of sets per property colour
+MAX_SETS_PER_PROPERTY = 5              # Max property piles per colour
 MAX_ANY_CARD = 8                       # Maximum possible number of any card (8 x Pass Go)
 
 NUM_UNIQUE_COLOURS = 10                # Number of unique colours
