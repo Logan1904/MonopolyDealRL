@@ -633,6 +633,7 @@ class MonopolyDeal(AECEnv):
             # render post action state
             self.render(mode='post')
             self.actions_left[agent] = 3
+            self.turn_count += 1
 
             # for next player
             self.agent_selection = self._agent_selector.next()
