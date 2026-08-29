@@ -3,10 +3,10 @@ from cardsdb import ALL_CARDS
 
 class Deck:
     def __init__(self):
-        self.deck = ALL_CARDS
-        self.shuffle()
+        self.deck = list(ALL_CARDS)
         self.discard_pile = []
-
+        self.shuffle()
+        
     def shuffle(self):
         random.shuffle(self.deck)
     
