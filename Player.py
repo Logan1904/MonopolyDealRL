@@ -115,7 +115,18 @@ class Player:
                     colours.add(colour)
                     break
         return colours
+    
+    def completedSetColours(self):
+        # One colour counts once however many completed sets it holds, and a
+        # wild-only set doesn't commit to a colour so it can't count either.
+        return sum(
+            any(pSet.isCompleted() and not pSet.isOnlyWild() for pSet in pSets)
+            for pSets in self.sets.values()
+        )
 
+    def hasWon(self):
+        return self.completedSetColours() >= SETS_TO_WIN
+    
     def hasBankableInHand(self):
         # Action cards may be banked as money; property cards may not.
         return any(not isinstance(card, PropertyCard) for card in self.hand)
