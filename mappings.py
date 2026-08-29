@@ -21,6 +21,10 @@ DECISION_DEFENDER_PAY_DONE = 12                  # signal payment is complete (o
 DECISION_DEFENDER_FORCED_DEAL_PLACE_COLOUR = 13  # set colour for incoming forced-deal property
 DECISION_DEFENDER_FORCED_DEAL_PLACE_INDEX = 14   # set index within that colour
 
+SETS_TO_WIN = 3                        # Distinct completed colours needed to win
+MAX_TURNS = 200                        # Truncation cap; a real 2-player game resolves well inside this
+WIN_REWARD = 1.0                       # Terminal reward for the winner; loser gets the negation
+
 # Number of cards required for a set
 SET_LENGTH = {
     "Blue": 2,
