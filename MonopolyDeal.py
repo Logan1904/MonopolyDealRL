@@ -701,6 +701,40 @@ class MonopolyDeal(AECEnv):
         # the agent we entered step() with if a defender phase was yielded to
         # or a turn just advanced).
         self.observations[self.agent_selection]["action_mask"] = action_mask.action_mask
+
+        # A board can change on any branch (forced deal moves both sides, deal
+        # breaker resolves during a defender drain), so check unconditionally.
+        self._resolve_game_end(agent)
+        self._accumulate_rewards()
+
+    def _resolve_game_end(self, acting_agent):
+        """Set terminal rewards and flags if the game is over.
+
+        Win is sparse: +/-WIN_REWARD on a win, nothing otherwise. Hitting the
+        turn cap truncates at zero for both, so stalling gains a losing player
+        nothing.
+
+        Inputs:
+            acting_agent : str — agent that owned this step, used to break the
+                           (near-impossible) double-win tie
+        Outputs:
+            none — mutates self.rewards, self.terminations, self.truncations
+        """
+        winners = [a for a in self.agents if self.players[a].hasWon()]
+
+        if winners:
+            winner = acting_agent if acting_agent in winners else winners[0]
+            self.rewards = {a: (WIN_REWARD if a == winner else -WIN_REWARD) for a in self.agents}
+            self.terminations = {a: True for a in self.agents}
+        elif self.turn_count >= MAX_TURNS or self._is_stalled():
+            self.truncations = {a: True for a in self.agents}
+
+    def _is_stalled(self):
+        # Nothing to draw and nothing in hand: no future action can change any
+        # board, so end it now rather than burning turns to the cap.
+        if self.deck.deckSize() or self.deck.discardSize():
+            return False
+        return all(not p.hand for p in self.players.values())
         
     def _finalize_attacker_action(self):
         """Run the post-resolution cleanup for the attacker's just-completed action:
