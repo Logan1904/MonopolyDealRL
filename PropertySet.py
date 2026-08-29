@@ -29,8 +29,7 @@ class PropertySet:
                 return self.properties.remove(p)
 
     def clearSet(self):
-        for property in self.properties:
-            self.removeProperty(property)
+        self.properties = []
 
     def rentValue(self):
         # Caveat: wild-only sets (empty or all pure-wild contents) earn no rent.
