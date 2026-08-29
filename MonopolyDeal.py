@@ -51,6 +51,7 @@ class MonopolyDeal(AECEnv):
         # a mapping between agent name and ID
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
 
+        self.render_mode = render_mode
         self.renderer = Render()
 
     # Observation space should be defined here.
@@ -885,8 +886,15 @@ class MonopolyDeal(AECEnv):
 
         return action_context
                         
-    def render(self, mode):
+    def render(self, mode="pre"):
+        # AEC calls render() with no arguments; internal calls pass a phase.
+        if self.render_mode != "human":
+            return
         self.renderer.render(mode, self._get_internal_state())
+
+    def close(self):
+        # Nothing to release — rich writes straight to stdout.
+        pass
     
     def _get_internal_state(self):
         return self.players, self.agents, self.agent_selection, self.deck, self.action_context
