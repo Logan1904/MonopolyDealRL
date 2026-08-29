@@ -253,11 +253,21 @@ class MonopolyDeal(AECEnv):
         And any internal state used by observe() or render()
         """
 
+        # A terminated agent must be stepped once with None so PettingZoo can
+        # retire it; nothing else in step() applies to it.
+        if self.terminations[self.agent_selection] or self.truncations[self.agent_selection]:
+            return self._was_dead_step(action)
+
         # extract useful values
         agent = self.agent_selection
         player = self.players[agent]
         decision = self.action_context["decision"]
         action_ID = self.action_context["action"]
+
+        # Rewards are terminal-only, so last step's must not persist. The
+        # cumulative clear is for the agent that just read last().
+        self._clear_rewards()
+        self._cumulative_rewards[agent] = 0.0
 
         action_mask = ActionMask()
 
