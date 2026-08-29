@@ -27,7 +27,6 @@ class ActionMask():
     def set_action_ID(self, internal_state):
         # set action mask based on cards in hand
 
-
         players, agents, agent_selection, deck, action_context = internal_state
         player = players[agent_selection]
 
@@ -38,7 +37,7 @@ class ActionMask():
         self.action_mask["action_ID"][1] = player.hasAtLeastOnePropertyOnBoard()
         
         # play money
-        self.action_mask["action_ID"][2] = player.hasMoneyInHand()
+        self.action_mask["action_ID"][2] = player.hasBankableInHand()
 
         # play property
         self.action_mask["action_ID"][3] = player.hasPropertyInHand()
@@ -131,7 +130,8 @@ class ActionMask():
     
         if action_ID == 2:      # money
             for card in player.hand:
-                self.action_mask["hand_card"][card.id] = 1
+                if not isinstance(card, PropertyCard):
+                    self.action_mask["hand_card"][card.id] = 1
 
         elif action_ID == 3:    # property
             for card in player.hand:

@@ -116,6 +116,10 @@ class Player:
                     break
         return colours
 
+    def hasBankableInHand(self):
+        # Action cards may be banked as money; property cards may not.
+        return any(not isinstance(card, PropertyCard) for card in self.hand)
+
     def hasMoneyInHand(self):
         for card in self.hand:
             if isinstance(card,MoneyCard):
